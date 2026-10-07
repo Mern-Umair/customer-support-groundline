@@ -1,0 +1,23 @@
+{
+  "name": "realtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@groundline/shared": "*",
+    "socket.io": "^4.8.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "socket.io-client": "^4.8.4",
+    "typescript": "^5",
+    "vitest": "^4.0.0"
+  }
+}
