@@ -9,7 +9,7 @@ export function LoginForm() {
   return (
     <form action={action} className="mt-6 flex flex-col gap-4" noValidate>
       {state?.message ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
           {state.message}
         </p>
       ) : null}

@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 interface FormFieldProps {
   label: string;
   name: string;
@@ -24,10 +26,10 @@ export function FormField({ label, name, type = "text", autoComplete, placeholde
         defaultValue={defaultValue}
         aria-invalid={errors ? true : undefined}
         aria-describedby={errors ? errorId : undefined}
-        className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 aria-[invalid]:border-red-500"
+        className="h-10 rounded-md border border-border-strong bg-surface px-3 text-sm text-fg outline-none placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25 aria-[invalid]:border-danger"
       />
       {errors ? (
-        <p id={errorId} className="text-sm text-red-600">
+        <p id={errorId} className="text-sm text-danger">
           {errors[0]}
         </p>
       ) : null}
@@ -37,12 +39,8 @@ export function FormField({ label, name, type = "text", autoComplete, placeholde
 
 export function SubmitButton({ pending, children }: { pending: boolean; children: React.ReactNode }) {
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="mt-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-60"
-    >
+    <Button type="submit" disabled={pending} className="mt-2 w-full">
       {pending ? "Please wait…" : children}
-    </button>
+    </Button>
   );
 }
