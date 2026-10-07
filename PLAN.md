@@ -76,8 +76,9 @@ groundline/
 ```
 
 Decisions:
-- **Auth**: Auth.js (NextAuth v5) credentials provider + MongoDB adapter. Simple and recognisable.
-- **DB access**: Mongoose with a tenant plugin that injects `tenantId` into every query; a unit test asserts no model lacks it.
+- **Auth** (changed 7 Oct): stateless session cookie signed with `jose` + a Data Access Layer (`verifySession`, `getCurrentContext`), exactly the pattern in the Next.js 16 authentication guide. Avoids the Auth.js beta dependency; OAuth can be added later.
+- **DB access** (changed 7 Oct): native MongoDB driver + zod + typed collection helpers, no Mongoose. Tenant isolation via `scoped(workspaceId, filter)` in `src/lib/tenant.ts`, which forces `workspaceId` into every query on tenant-owned data and throws on a cross-tenant filter. Unit-tested.
+- **Tests use a separate database** (`groundline_test`, via `MONGODB_URI_TEST`) for Vitest integration tests and the Playwright dev server; the main database is never touched by tests.
 - **Streaming**: SSE from a Next.js route handler (works on Vercel); WebSockets only for handoff and live view.
 - **Tests**: Vitest (unit, with a test Atlas cluster for retrieval tests), Playwright (e2e against the local dev server with a seeded tenant). CI secrets: `MONGODB_URI_TEST`, `GEMINI_API_KEY`, `GROQ_API_KEY`.
 - **Docker**: Dockerfile for `apps/realtime` only (Vercel builds web). Docker is not installed on this machine; the Dockerfile is validated by the Render build.
