@@ -13,14 +13,21 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@google/genai": "^2.27.0",
     "@groundline/shared": "*",
+    "@mozilla/readability": "^0.6.0",
     "bcryptjs": "^3.0.3",
+    "cheerio": "^1.2.0",
+    "fast-xml-parser": "^5.11.2",
     "jose": "^6.2.12",
+    "linkedom": "^0.18.13",
     "mongodb": "^6.21.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "robots-parser": "^3.0.1",
     "server-only": "^0.0.1",
+    "unpdf": "^1.8.1",
     "zod": "^4.1.0"
   },
   "devDependencies": {

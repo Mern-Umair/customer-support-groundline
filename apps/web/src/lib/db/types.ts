@@ -34,3 +34,73 @@ export interface MembershipDoc {
 export interface TenantOwned {
   workspaceId: ObjectId;
 }
+
+// ---------------------------------------------------------------------------
+// Knowledge sources
+// ---------------------------------------------------------------------------
+
+export type SourceKind = "website" | "pdf" | "text";
+export type SourceStatus = "queued" | "discovering" | "processing" | "ready" | "failed";
+
+export interface SourceDoc extends TenantOwned {
+  _id: ObjectId;
+  kind: SourceKind;
+  /** Display name: site host for websites, file name for uploads. */
+  name: string;
+  /** Start URL for websites. */
+  url?: string;
+  status: SourceStatus;
+  error?: string;
+  /** Max pages to index for this source (plan-derived at creation). */
+  pageLimit: number;
+  counts: {
+    pagesDiscovered: number;
+    pagesProcessed: number;
+    pagesFailed: number;
+    chunks: number;
+  };
+  /** Embedding model id used for this source's chunks, e.g. gemini-embedding-001@768. */
+  embeddingModel: string;
+  createdBy: ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt?: Date;
+}
+
+export type PageStatus = "pending" | "processed" | "failed" | "skipped";
+
+/** One unit of ingestion: a web page or an uploaded document. */
+export interface PageDoc extends TenantOwned {
+  _id: ObjectId;
+  sourceId: ObjectId;
+  url?: string;
+  title?: string;
+  status: PageStatus;
+  error?: string;
+  /** For uploads, the raw text is stored here until processed, then dropped. */
+  pendingText?: string;
+  pendingPages?: string[];
+  depth: number;
+  chunkCount: number;
+  charCount: number;
+  extractor?: "readability" | "body" | "pdf" | "text";
+  createdAt: Date;
+  processedAt?: Date;
+}
+
+/** A retrievable passage with its embedding. Vector index lives on `embedding`. */
+export interface ChunkDoc extends TenantOwned {
+  _id: ObjectId;
+  sourceId: ObjectId;
+  pageId: ObjectId;
+  order: number;
+  text: string;
+  approxTokens: number;
+  embedding: number[];
+  /** Display metadata for citations. */
+  title: string;
+  url?: string;
+  /** 1-based PDF page number when known. */
+  pageNumber?: number;
+  createdAt: Date;
+}

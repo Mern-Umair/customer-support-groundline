@@ -1,4 +1,7 @@
 import { getCurrentContext } from "@/lib/auth/dal";
+import { getDb } from "@/lib/db";
+import { chunks, sources } from "@/lib/db/collections";
+import { scoped } from "@/lib/tenant";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Stat } from "@/components/ui/card";
 
@@ -15,6 +18,12 @@ const steps = [
 
 export default async function DashboardOverview() {
   const { workspace } = await getCurrentContext();
+  const db = await getDb();
+  const [sourceCount, chunkCount] = await Promise.all([
+    sources(db).countDocuments(scoped(workspace._id)),
+    chunks(db).countDocuments(scoped(workspace._id)),
+  ]);
+  const firstStepDone = sourceCount > 0;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -24,7 +33,7 @@ export default async function DashboardOverview() {
       </p>
 
       <section className="mt-8 grid gap-4 sm:grid-cols-4">
-        <Stat label="Knowledge sources" value="0" />
+        <Stat label="Knowledge sources" value={String(sourceCount)} hint={chunkCount ? `${chunkCount} chunks indexed` : undefined} />
         <Stat label="Conversations" value="0" hint="last 30 days" />
         <Stat label="Resolved by AI" value="–" hint="no conversations yet" />
         <Stat label="Handed to a human" value="–" hint="no conversations yet" />
@@ -37,10 +46,10 @@ export default async function DashboardOverview() {
             <Card key={step.title} className="flex items-center gap-4 p-4">
               <span
                 className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
-                  step.status === "next" ? "bg-accent text-accent-fg" : "bg-surface-2 text-fg-subtle"
+                  i === 0 && firstStepDone ? "bg-success-soft text-success" : step.status === "next" ? "bg-accent text-accent-fg" : "bg-surface-2 text-fg-subtle"
                 }`}
               >
-                {i + 1}
+                {i === 0 && firstStepDone ? "✓" : i + 1}
               </span>
               <div className="flex-1">
                 <p className="font-medium">{step.title}</p>
