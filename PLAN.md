@@ -88,5 +88,5 @@ Decisions:
 ## 6. Open questions for Umair
 1. Name **Groundline**: OK?
 2. Git identity for this repo: name + email to commit as.
-3. GitHub username, for the repo URL in README and posts.
+3. ~~GitHub username~~ → github.com/Mern-Umair/customer-support-groundline (done 8 Oct).
 4. Tag Dr. Munir Ahmad in post #1 and later posts?
