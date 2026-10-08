@@ -114,15 +114,16 @@ export function ChatPanel({ send, feedback, pollUrl, showDiagnostics = false, pl
           // The stored note is also broadcast over the socket; remember its id so it is not shown twice.
           const noteId = ev.noteId ?? `note-${Date.now()}`;
           seen.current.add(noteId);
-          if (!streamedText) {
-            // Nothing was streamed: the pending bubble becomes the note. Capture the id now; state
-            // updaters run later and must not see a reassigned `currentId`.
-            const pendingId = currentId;
-            patch(pendingId, { id: noteId, role: "system", text: ev.note, streaming: false });
-            currentId = noteId;
-          } else {
-            setTurns((ts) => [...ts, { id: noteId, role: "system", text: ev.note }]);
-          }
+          // The same note may already have arrived over the socket (it races the SSE event):
+          // then only drop the empty pending bubble. Capture ids now; updaters run later.
+          const pendingId = currentId;
+          const convertPending = !streamedText;
+          setTurns((ts) => {
+            if (ts.some((t) => t.id === noteId)) return convertPending ? ts.filter((t) => t.id !== pendingId) : ts;
+            if (convertPending) return ts.map((t) => (t.id === pendingId ? { ...t, id: noteId, role: "system", text: ev.note, streaming: false } : t));
+            return [...ts, { id: noteId, role: "system", text: ev.note }];
+          });
+          if (convertPending) currentId = noteId;
         } else if (ev.type === "done") {
           seen.current.add(ev.messageId);
           if (ev.role === "system") {

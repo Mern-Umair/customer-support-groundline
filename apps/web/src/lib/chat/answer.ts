@@ -219,6 +219,7 @@ export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): A
     conversationId: conversation._id,
     role: "assistant",
     content: parsed.text,
+    question,
     citations,
     refused: parsed.refused,
     retrieval,

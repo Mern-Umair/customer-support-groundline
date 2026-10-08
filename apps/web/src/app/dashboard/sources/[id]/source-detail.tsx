@@ -60,6 +60,18 @@ export function SourceDetail({ initialSource, initialPages }: Props) {
     };
   }, [source.id, source.status]);
 
+  async function resync() {
+    setRunError(null);
+    const res = await fetch(`/api/sources/${source.id}/resync`, { method: "POST" });
+    const json = (await res.json().catch(() => ({}))) as { source?: SourceDto; error?: string };
+    if (!res.ok || !json.source) {
+      setRunError(json.error ?? "Could not re-sync");
+      return;
+    }
+    setPages([]);
+    setSource(json.source); // status "queued" restarts the processing loop above
+  }
+
   async function remove() {
     if (!confirm(`Delete "${source.name}" and all its indexed content?`)) return;
     setDeleting(true);
@@ -90,6 +102,11 @@ export function SourceDetail({ initialSource, initialPages }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <SourceStatusBadge status={source.status} />
+          {source.kind === "website" ? (
+            <Button variant="secondary" size="sm" onClick={resync} disabled={active || deleting}>
+              Re-sync
+            </Button>
+          ) : null}
           <Button variant="ghost" size="sm" onClick={remove} disabled={deleting || active}>
             {deleting ? "Deleting…" : "Delete"}
           </Button>
@@ -124,7 +141,7 @@ export function SourceDetail({ initialSource, initialPages }: Props) {
         <Stat label="Pages found" value={String(source.counts.pagesDiscovered)} hint={`limit ${source.pageLimit}`} />
         <Stat label="Pages indexed" value={String(source.counts.pagesProcessed)} />
         <Stat label="Chunks" value={String(source.counts.chunks)} hint="~512 tokens each" />
-        <Stat label="Failed" value={String(source.counts.pagesFailed)} />
+        <Stat label="Pages failed" value={String(source.counts.pagesFailed)} />
       </section>
 
       {source.status === "ready" || source.counts.chunks > 0 ? (

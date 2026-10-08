@@ -251,6 +251,23 @@ async function processPage(ctx: PipelineContext, source: SourceDoc, page: PageDo
   }
 }
 
+/** Website sources only: wipe pages + chunks and start over from the start URL. */
+export async function resyncSource(ctx: PipelineContext, sourceId: ObjectId): Promise<SourceDoc> {
+  const filter = scoped(ctx.workspaceId, { _id: sourceId });
+  const source = await sources(ctx.db).findOne(filter);
+  if (!source) throw new SourceLimitError("Source not found");
+  if (source.kind !== "website" || !source.url) throw new SourceLimitError("Only website sources can be re-synced; re-upload documents instead.");
+  if (source.status === "discovering" || source.status === "processing") throw new SourceLimitError("This source is still indexing.");
+  await Promise.all([pages(ctx.db).deleteMany(scoped(ctx.workspaceId, { sourceId })), chunks(ctx.db).deleteMany(scoped(ctx.workspaceId, { sourceId }))]);
+  const now = new Date();
+  await sources(ctx.db).updateOne(filter, {
+    $set: { status: "queued", counts: { pagesDiscovered: 1, pagesProcessed: 0, pagesFailed: 0, chunks: 0 }, embeddingModel: ctx.embedder.id, updatedAt: now },
+    $unset: { error: "", completedAt: "" },
+  });
+  await pages(ctx.db).insertOne(newPage(ctx, source._id, { url: source.url, depth: 0 }));
+  return (await sources(ctx.db).findOne(filter))!;
+}
+
 export async function deleteSource(ctx: PipelineContext, sourceId: ObjectId): Promise<boolean> {
   const res = await sources(ctx.db).deleteOne(scoped(ctx.workspaceId, { _id: sourceId }));
   if (res.deletedCount === 0) return false;

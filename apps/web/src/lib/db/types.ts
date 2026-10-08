@@ -131,6 +131,8 @@ export interface MessageDoc extends TenantOwned {
   content: string;
   /** Assistant messages only. */
   citations?: Citation[];
+  /** The visitor question this assistant message answered (denormalised for the unanswered list). */
+  question?: string;
   refused?: boolean;
   retrieval?: { k: number; topScore: number | null; considered: number };
   usage?: { provider: string; model: string; inputTokens: number; outputTokens: number; costUsd: number | null; latencyMs: number; firstTokenMs: number | null };

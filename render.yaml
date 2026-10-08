@@ -1,0 +1,18 @@
+# Render Blueprint: the Socket.io realtime server. The Next.js app deploys to Vercel.
+services:
+  - type: web
+    name: groundline-realtime
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/realtime/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "4000"
+      - key: AUTH_SECRET
+        sync: false
+      - key: REALTIME_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

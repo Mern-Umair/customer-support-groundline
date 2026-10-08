@@ -10,6 +10,10 @@ Next.js 16 + TypeScript (dashboard, API, SSE streaming) · Node + Socket.io (han
 
 Runs entirely on free tiers.
 
+## How it works
+
+See [docs/architecture.md](docs/architecture.md) for the diagram and request paths, and [docs/deploy.md](docs/deploy.md) for the free-tier deployment (Vercel + Render + Atlas).
+
 ## Repo layout
 
 ```

@@ -49,7 +49,7 @@ test.describe.serial("knowledge sources", () => {
     await expect(page.getByRole("link", { name: /Repair policy/ })).toBeVisible();
     await expect(page.getByText("1 / 5 sources")).toBeVisible();
     await page.getByRole("link", { name: "Overview" }).click();
-    await expect(page.getByRole("main").getByText("Knowledge sources", { exact: true }).locator("..").getByText("1", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 source · 1 chunks")).toBeVisible();
   });
 
   test("rejects an invalid website URL and a non-PDF upload", async ({ page }) => {
