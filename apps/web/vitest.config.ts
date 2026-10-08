@@ -14,6 +14,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     passWithNoTests: true,
+    // Integration tests talk to Atlas; the first connection from a CI runner can take several seconds.
+    testTimeout: 30_000,
+    hookTimeout: 120_000,
     env: {
       MONGODB_URI: process.env.MONGODB_URI_TEST ?? "",
       AUTH_SECRET: "vitest-secret-at-least-16-chars",
