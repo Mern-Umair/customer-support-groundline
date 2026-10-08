@@ -5,6 +5,10 @@ const schema = z.object({
   AUTH_SECRET: z.string().min(16, "AUTH_SECRET must be at least 16 characters"),
   GEMINI_API_KEY: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
+  /** Server-to-server base URL of the realtime (Socket.io) server, e.g. http://localhost:4000 */
+  REALTIME_URL: z.string().url().optional(),
+  /** Shared secret for POST {REALTIME_URL}/emit */
+  REALTIME_SECRET: z.string().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

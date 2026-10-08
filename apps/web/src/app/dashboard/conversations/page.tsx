@@ -53,7 +53,7 @@ export default async function ConversationsPage() {
                     {c.totals.costUsd ? `$${c.totals.costUsd.toFixed(4)}` : "$0"} · {c.totals.answers ? `${Math.round(c.totals.latencyMs / c.totals.answers)} ms avg` : ""}
                   </p>
                 </div>
-                <StatusBadge status={c.status} refusalRate={refusalRate} />
+                {c.status === "human" && !c.handoff?.takenAt ? <Badge tone="danger">Needs attention</Badge> : <StatusBadge status={c.status} refusalRate={refusalRate} />}
                 <span className="w-20 shrink-0 text-right text-xs text-fg-subtle">{relative(c.lastMessageAt)}</span>
               </Link>
             );

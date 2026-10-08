@@ -1,43 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { ChatMessage, HandoffRequested, roomForConversation, roomForTenant } from "./realtime-events.ts";
+import { HandoffRequested, LiveMessage, RealtimeTokenPayload, roomForConversation, roomForWorkspace } from "./realtime-events.ts";
 
 describe("realtime event schemas", () => {
-  it("accepts a valid chat message", () => {
-    const parsed = ChatMessage.safeParse({
-      id: "m1",
-      conversationId: "c1",
-      tenantId: "t1",
-      role: "visitor",
-      content: "hi",
-      createdAt: new Date().toISOString(),
-    });
+  it("accepts a valid live message", () => {
+    const parsed = LiveMessage.safeParse({ id: "m1", conversationId: "c1", workspaceId: "w1", role: "visitor", content: "hi", createdAt: new Date().toISOString() });
     expect(parsed.success).toBe(true);
   });
 
   it("rejects an unknown role", () => {
-    const parsed = ChatMessage.safeParse({
-      id: "m1",
-      conversationId: "c1",
-      tenantId: "t1",
-      role: "hacker",
-      content: "hi",
-      createdAt: new Date().toISOString(),
-    });
+    const parsed = LiveMessage.safeParse({ id: "m1", conversationId: "c1", workspaceId: "w1", role: "hacker", content: "hi", createdAt: "x" });
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects a handoff without a tenant", () => {
-    const parsed = HandoffRequested.safeParse({
-      conversationId: "c1",
-      reason: "low_confidence",
-      lastVisitorMessage: "where is my order",
-      requestedAt: new Date().toISOString(),
-    });
+  it("rejects a handoff without a workspace", () => {
+    const parsed = HandoffRequested.safeParse({ conversationId: "c1", reason: "low_confidence", title: "t", lastVisitorMessage: "where is my order", requestedAt: "x" });
     expect(parsed.success).toBe(false);
+  });
+
+  it("discriminates token payloads by role", () => {
+    expect(RealtimeTokenPayload.safeParse({ role: "agent", workspaceId: "w", userId: "u", name: "Sara" }).success).toBe(true);
+    expect(RealtimeTokenPayload.safeParse({ role: "visitor", workspaceId: "w", conversationId: "c" }).success).toBe(true);
+    expect(RealtimeTokenPayload.safeParse({ role: "visitor", workspaceId: "w" }).success).toBe(false);
   });
 
   it("builds namespaced room names", () => {
-    expect(roomForTenant("t1")).toBe("tenant:t1");
-    expect(roomForConversation("c1")).toBe("conversation:c1");
+    expect(roomForWorkspace("w1")).toBe("workspace:w1");
+    expect(roomForConversation("w1", "c1")).toBe("conversation:w1:c1");
   });
 });

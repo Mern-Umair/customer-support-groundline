@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import type { LiveMessage, StatusChanged } from "@groundline/shared";
 import { Button } from "@/components/ui/button";
 import { Badge, CitationChip } from "@/components/ui/badge";
 import type { CitationDto, SourceSummary } from "@/lib/chat/answer";
 import { readAnswerEvents } from "@/lib/chat/read-events";
 import type { MessageDoc } from "@/lib/db/types";
+import { useLiveConversation } from "./use-live-conversation";
 
 export interface Turn {
   id: string;
-  role: "visitor" | "assistant" | "agent";
+  role: "visitor" | "assistant" | "agent" | "system";
   text: string;
   streaming?: boolean;
   citations?: CitationDto[];
@@ -22,11 +24,10 @@ export interface Turn {
 }
 
 export interface ChatPanelProps {
-  /** Returns the request for a new message. */
   send: (message: string, conversationId: string | undefined) => { url: string; body: Record<string, unknown> };
-  /** Returns the request for a feedback vote. */
   feedback?: (messageId: string, vote: "up" | "down") => { url: string; body: Record<string, unknown> };
-  /** Show tokens, cost, latency and the sources-considered panel (dashboard only). */
+  /** Polling fallback for agent/system messages when the socket is unavailable. */
+  pollUrl?: (conversationId: string, afterId: string | undefined) => string;
   showDiagnostics?: boolean;
   placeholder?: string;
   emptyHint?: string;
@@ -36,25 +37,48 @@ export interface ChatPanelProps {
   className?: string;
 }
 
-export function ChatPanel({ send, feedback, showDiagnostics = false, placeholder = "Ask a question…", emptyHint, initialTurns = [], initialConversationId, onConversation, className = "" }: ChatPanelProps) {
+export function ChatPanel({ send, feedback, pollUrl, showDiagnostics = false, placeholder = "Ask a question…", emptyHint, initialTurns = [], initialConversationId, onConversation, className = "" }: ChatPanelProps) {
   const [turns, setTurns] = useState<Turn[]>(initialTurns);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>(initialConversationId);
+  const [status, setStatus] = useState<string | undefined>();
+  const [realtime, setRealtime] = useState<{ url: string; token: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const seen = useRef(new Set<string>(initialTurns.map((t) => t.id)));
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns]);
 
-  function patchLast(patch: Partial<Turn> | ((t: Turn) => Partial<Turn>)) {
-    setTurns((ts) => {
-      const last = ts[ts.length - 1];
-      if (!last || last.role !== "assistant") return ts;
-      const p = typeof patch === "function" ? patch(last) : patch;
-      return [...ts.slice(0, -1), { ...last, ...p }];
-    });
-  }
+  const patch = useCallback((id: string, p: Partial<Turn> | ((t: Turn) => Partial<Turn>)) => {
+    setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, ...(typeof p === "function" ? p(t) : p) } : t)));
+  }, []);
+
+  const appendLive = useCallback((m: LiveMessage) => {
+    if (m.role !== "agent" && m.role !== "system") return; // our own visitor/assistant turns are already shown
+    if (seen.current.has(m.id)) return;
+    seen.current.add(m.id);
+    setTurns((ts) => [...ts, { id: m.id, role: m.role, text: m.content }]);
+  }, []);
+
+  const onStatus = useCallback((s: StatusChanged) => {
+    setStatus(s.status);
+    if (s.status === "human" && s.agentName) setTurns((ts) => [...ts, { id: `st-${Date.now()}`, role: "system", text: `${s.agentName} from the support team has joined.` }]);
+    if (s.status === "ai") setTurns((ts) => [...ts, { id: `st-${Date.now()}`, role: "system", text: "The assistant is back on this conversation." }]);
+  }, []);
+
+  const lastLiveId = [...turns].reverse().find((t) => t.role === "agent" || t.role === "system")?.id;
+  const { connected } = useLiveConversation({
+    conversationId,
+    realtime,
+    pollUrl: pollUrl && conversationId ? (after) => pollUrl(conversationId, after) : undefined,
+    pollWhen: (s) => s === "human",
+    status,
+    lastMessageId: lastLiveId && /^[0-9a-f]{24}$/.test(lastLiveId) ? lastLiveId : undefined,
+    onMessage: appendLive,
+    onStatus,
+  });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -64,25 +88,55 @@ export function ChatPanel({ send, feedback, showDiagnostics = false, placeholder
     setBusy(true);
     const tempId = `tmp-${Date.now()}`;
     setTurns((ts) => [...ts, { id: `v-${tempId}`, role: "visitor", text: question }, { id: tempId, role: "assistant", text: "", streaming: true }]);
+    let currentId = tempId;
+    let streamedText = "";
     try {
       const req = send(question, conversationId);
       const res = await fetch(req.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req.body) });
       if (!res.ok || !res.body) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
-        patchLast({ streaming: false, error: j.error ?? `Request failed (${res.status})` });
+        patch(currentId, { streaming: false, error: j.error ?? `Request failed (${res.status})` });
         return;
       }
       for await (const ev of readAnswerEvents(res.body)) {
         if (ev.type === "meta") {
           setConversationId(ev.conversationId);
+          setStatus(ev.status);
+          if (ev.realtime) setRealtime(ev.realtime);
           onConversation?.(ev.conversationId);
-        } else if (ev.type === "sources") patchLast({ sources: ev.sources });
-        else if (ev.type === "text") patchLast((t) => ({ text: t.text + ev.text }));
-        else if (ev.type === "done") patchLast({ id: ev.messageId, text: ev.text, citations: ev.citations, refused: ev.refused, usage: ev.usage, retrieval: ev.retrieval, streaming: false });
-        else if (ev.type === "error") patchLast({ streaming: false, error: ev.message });
+        } else if (ev.type === "sources") patch(currentId, { sources: ev.sources });
+        else if (ev.type === "text") {
+          streamedText += ev.text;
+          patch(currentId, (t) => ({ text: t.text + ev.text }));
+        }
+        else if (ev.type === "handoff") {
+          setStatus(ev.status);
+          // The stored note is also broadcast over the socket; remember its id so it is not shown twice.
+          const noteId = ev.noteId ?? `note-${Date.now()}`;
+          seen.current.add(noteId);
+          if (!streamedText) {
+            // Nothing was streamed: the pending bubble becomes the note. Capture the id now; state
+            // updaters run later and must not see a reassigned `currentId`.
+            const pendingId = currentId;
+            patch(pendingId, { id: noteId, role: "system", text: ev.note, streaming: false });
+            currentId = noteId;
+          } else {
+            setTurns((ts) => [...ts, { id: noteId, role: "system", text: ev.note }]);
+          }
+        } else if (ev.type === "done") {
+          seen.current.add(ev.messageId);
+          if (ev.role === "system") {
+            // Either the pending bubble already became the note or there is nothing to show: drop an empty pending bubble.
+            const pendingId = currentId;
+            setTurns((ts) => ts.filter((t) => t.id !== pendingId || Boolean(t.text)));
+          } else {
+            patch(currentId, { id: ev.messageId, text: ev.text, citations: ev.citations, refused: ev.refused, usage: ev.usage ?? undefined, retrieval: ev.retrieval ?? undefined, streaming: false });
+            currentId = ev.messageId;
+          }
+        } else if (ev.type === "error") patch(currentId, { streaming: false, error: ev.message });
       }
     } catch {
-      patchLast({ streaming: false, error: "Network error" });
+      patch(currentId, { streaming: false, error: "Network error" });
     } finally {
       setBusy(false);
     }
@@ -90,7 +144,7 @@ export function ChatPanel({ send, feedback, showDiagnostics = false, placeholder
 
   async function vote(turn: Turn, v: "up" | "down") {
     if (!feedback) return;
-    setTurns((ts) => ts.map((t) => (t.id === turn.id ? { ...t, feedback: v } : t)));
+    patch(turn.id, { feedback: v });
     const req = feedback(turn.id, v);
     await fetch(req.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req.body) });
   }
@@ -102,8 +156,10 @@ export function ChatPanel({ send, feedback, showDiagnostics = false, placeholder
         {turns.map((t) =>
           t.role === "visitor" ? (
             <VisitorBubble key={t.id} turn={t} />
+          ) : t.role === "system" ? (
+            <SystemNote key={t.id} text={t.text} />
           ) : (
-            <AssistantBubble key={t.id} turn={t} onVote={feedback ? vote : undefined} showDiagnostics={showDiagnostics} />
+            <AssistantBubble key={t.id} turn={t} onVote={feedback && t.role === "assistant" ? vote : undefined} showDiagnostics={showDiagnostics} />
           ),
         )}
       </div>
@@ -111,7 +167,7 @@ export function ChatPanel({ send, feedback, showDiagnostics = false, placeholder
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={placeholder}
+          placeholder={status === "human" ? "Reply to the team…" : placeholder}
           aria-label="Message"
           className="h-10 flex-1 rounded-md border border-border-strong bg-surface px-3 text-sm outline-none placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
         />
@@ -119,6 +175,11 @@ export function ChatPanel({ send, feedback, showDiagnostics = false, placeholder
           {busy ? "Answering…" : "Send"}
         </Button>
       </form>
+      {status === "human" ? (
+        <p className="px-3 pb-2 text-[10px] text-fg-subtle" data-testid="live-indicator">
+          {connected ? "Live · a teammate will reply here" : "Waiting for a teammate · checking for replies"}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -131,6 +192,14 @@ function VisitorBubble({ turn }: { turn: Turn }) {
   );
 }
 
+export function SystemNote({ text }: { text: string }) {
+  return (
+    <div className="flex justify-center">
+      <span className="max-w-[90%] rounded-full bg-warning-soft px-3 py-1 text-center text-[11px] font-medium text-warning">{text}</span>
+    </div>
+  );
+}
+
 function AssistantBubble({ turn, onVote, showDiagnostics }: { turn: Turn; onVote?: (t: Turn, v: "up" | "down") => void; showDiagnostics: boolean }) {
   const [showSources, setShowSources] = useState(false);
   const u = turn.usage;
@@ -138,7 +207,7 @@ function AssistantBubble({ turn, onVote, showDiagnostics }: { turn: Turn; onVote
   return (
     <div className="flex flex-col items-start gap-1.5">
       {isAgent ? <span className="px-1 text-[10px] font-medium text-fg-subtle">Support team</span> : null}
-      <div className={`max-w-[85%] rounded-2xl rounded-bl-sm px-3.5 py-2 text-sm leading-relaxed ${turn.refused ? "bg-warning-soft text-warning" : "bg-surface-2 text-fg"}`}>
+      <div className={`max-w-[85%] rounded-2xl rounded-bl-sm px-3.5 py-2 text-sm leading-relaxed ${turn.refused ? "bg-warning-soft text-warning" : isAgent ? "border border-accent/30 bg-accent-soft/40 text-fg" : "bg-surface-2 text-fg"}`}>
         {turn.text || (turn.streaming ? <span className="text-fg-subtle">Thinking…</span> : null)}
         {turn.streaming && turn.text ? <span className="ml-0.5 inline-block h-3.5 w-1 animate-pulse bg-fg-subtle align-middle" /> : null}
       </div>

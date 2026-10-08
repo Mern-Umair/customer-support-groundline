@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.ts",
-    "start": "node src/index.ts",
+    "dev": "node --env-file-if-exists=.env --watch src/index.ts",
+    "start": "node --env-file-if-exists=.env src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@groundline/shared": "*",
+    "jose": "^6.2.12",
     "socket.io": "^4.8.0",
     "zod": "^4.1.0"
   },

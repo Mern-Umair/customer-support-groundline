@@ -3,6 +3,7 @@ import { logoutAction } from "@/app/(auth)/actions";
 import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { NavLinks } from "./nav-links";
+import { RealtimeAlerts } from "./realtime-alerts";
 
 const nav = [
   { href: "/dashboard", label: "Overview" },
@@ -41,6 +42,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto px-6 py-8 sm:px-10">{children}</main>
+      <RealtimeAlerts />
     </div>
   );
 }

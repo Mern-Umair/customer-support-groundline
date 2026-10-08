@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { waitForRetrieval } from "./helpers";
 
 const stamp = Date.now();
 const email = `e2e-src-${stamp}@example.com`;
@@ -40,19 +41,7 @@ test.describe.serial("knowledge sources", () => {
     await expect(page.getByText("Ready", { exact: true })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText("Chunks", { exact: true }).locator("..").getByText("1", { exact: true })).toBeVisible();
 
-    // Retrieval: Atlas Search is eventually consistent, so retry the search a few times.
-    const input = page.getByLabel("Test question");
-    await input.fill("how much does a tune-up cost");
-    await expect
-      .poll(
-        async () => {
-          await page.getByRole("button", { name: "Search" }).click();
-          await page.waitForResponse((r) => r.url().includes("/api/retrieval/search"));
-          return page.getByText("39 euros").count();
-        },
-        { timeout: 90_000, intervals: [3000] },
-      )
-      .toBeGreaterThan(0);
+    await waitForRetrieval(page, "how much does a tune-up cost", "39 euros");
 
     // Source list shows it as ready and the overview counts it.
     await page.getByRole("link", { name: "← Knowledge sources" }).click();

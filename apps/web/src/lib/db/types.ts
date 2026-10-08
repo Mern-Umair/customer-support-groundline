@@ -111,7 +111,8 @@ export interface ConversationDoc extends TenantOwned {
   lastMessageAt: Date;
 }
 
-export type MessageRole = "visitor" | "assistant" | "agent";
+/** system: notes shown in the thread ("connecting you with a teammate"), never sent to the model. */
+export type MessageRole = "visitor" | "assistant" | "agent" | "system";
 
 export interface Citation {
   /** 1-based index as shown in the answer text. */

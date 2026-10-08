@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { addTextSource, waitForRetrieval } from "./helpers";
 
 const stamp = Date.now();
 const email = `e2e-widget-${stamp}@example.com`;
@@ -17,12 +18,8 @@ test.describe.serial("embedded widget", () => {
     publicKey = (await page.locator("code", { hasText: /^wk_/ }).textContent())?.trim() ?? "";
     expect(publicKey).toMatch(/^wk_[0-9a-f]{32}$/);
 
-    await page.goto("/dashboard/sources");
-    await page.getByRole("tab", { name: "Plain text" }).click();
-    await page.getByLabel("Name").fill("Delivery");
-    await page.getByLabel("Text").fill("Porto Plants delivers within Portugal in two working days. Delivery is free for orders above 40 euros, otherwise it costs 5 euros. Plants are shipped in recyclable boxes.");
-    await page.getByRole("button", { name: "Add source" }).click();
-    await expect(page.getByText("Ready", { exact: true })).toBeVisible({ timeout: 60_000 });
+    await addTextSource(page, "Delivery", "Porto Plants delivers within Portugal in two working days. Delivery is free for orders above 40 euros, otherwise it costs 5 euros. Plants are shipped in recyclable boxes.");
+    await waitForRetrieval(page, "how much does delivery cost", /5 euros/);
   });
 
   test("visitor opens the widget on the demo site and gets a cited answer", async ({ page }) => {
@@ -36,17 +33,10 @@ test.describe.serial("embedded widget", () => {
     await expect(frame.getByText("Porto Plants support")).toBeVisible({ timeout: 30_000 });
 
     const box = frame.getByLabel("Message");
-    await expect
-      .poll(
-        async () => {
-          await box.fill("How much does delivery cost?");
-          await frame.getByRole("button", { name: "Send" }).click();
-          await expect(frame.getByRole("button", { name: "Answering…" })).toHaveCount(0, { timeout: 30_000 });
-          return frame.getByText("[1] Delivery").count();
-        },
-        { timeout: 120_000, intervals: [4000] },
-      )
-      .toBeGreaterThan(0);
+    await box.fill("How much does delivery cost?");
+    await frame.getByRole("button", { name: "Send" }).click();
+    await expect(frame.getByRole("button", { name: "Answering…" })).toHaveCount(0, { timeout: 30_000 });
+    await expect(frame.getByText("[1] Delivery")).toBeVisible();
     await expect(frame.getByText(/5 euros/).last()).toBeVisible();
     // No diagnostics in the public widget.
     await expect(frame.getByText(/tokens/)).toHaveCount(0);
@@ -63,14 +53,16 @@ test.describe.serial("embedded widget", () => {
     const bad = await request.post("/api/widget/chat", { data: { key: "wk_00000000000000000000000000000000", visitorId: "v_abcdefghij", message: "hi" } });
     expect(bad.status()).toBe(404);
 
+    // Limit is 10 per fixed one-minute window. 21 quick requests can span at most two windows
+    // (max 20 allowed), so at least one must be rejected regardless of where the minute boundary falls.
     const visitorId = `v_ratelimit${stamp}`;
     const statuses: number[] = [];
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < 21; i++) {
       const res = await request.post("/api/widget/chat", { data: { key: publicKey, visitorId, message: `ping ${i}` } });
       statuses.push(res.status());
     }
     expect(statuses.slice(0, 10).every((s) => s === 200)).toBe(true);
-    expect(statuses[10]).toBe(429);
+    expect(statuses.filter((s) => s === 429).length).toBeGreaterThan(0);
   });
 
   test("the chat shows up in the dashboard with the widget badge and transcript", async ({ page }) => {

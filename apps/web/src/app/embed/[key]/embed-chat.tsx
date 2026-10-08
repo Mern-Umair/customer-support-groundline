@@ -73,6 +73,7 @@ export function EmbedChat({ publicKey, workspaceName }: Props) {
         }}
         send={(message, convo) => ({ url: "/api/widget/chat", body: { key: publicKey, visitorId, message, conversationId: convo } })}
         feedback={(messageId, vote) => ({ url: "/api/widget/feedback", body: { key: publicKey, visitorId, messageId, vote } })}
+        pollUrl={(conversationId, after) => `/api/widget/messages?key=${encodeURIComponent(publicKey)}&visitorId=${encodeURIComponent(visitorId)}&conversationId=${conversationId}${after ? `&after=${after}` : ""}`}
       />
       <p className="border-t border-border py-1.5 text-center text-[10px] text-fg-subtle">Answers are grounded in {workspaceName}&apos;s documents · Powered by Groundline</p>
     </div>
