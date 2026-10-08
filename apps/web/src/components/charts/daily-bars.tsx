@@ -51,7 +51,7 @@ export function DailyBars({ data, label = "Conversations per day" }: { data: Dai
           );
         })}
         {data.map((d, i) =>
-          i === 0 || i === data.length - 1 || i % 7 === 0 ? (
+          i === data.length - 1 || (i % 7 === 0 && i < data.length - 3) ? (
             <text key={`l-${d.day}`} x={padLeft + i * (barW + gap) + barW / 2} y={height - 6} textAnchor="middle" className="fill-fg-subtle" fontSize={10}>
               {d.day.slice(5)}
             </text>

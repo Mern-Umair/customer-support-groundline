@@ -51,7 +51,7 @@ export function RealtimeAlerts() {
 
   return (
     <>
-      <span className="fixed bottom-3 left-3 z-40 hidden items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-1 text-[10px] text-fg-subtle sm:inline-flex" data-testid="realtime-state">
+      <span className="fixed bottom-3 left-16 z-40 hidden items-center gap-1.5 rounded-full border border-border bg-surface px-2 py-1 text-[10px] text-fg-subtle sm:inline-flex" data-testid="realtime-state">
         <span className={`h-1.5 w-1.5 rounded-full ${state === "live" ? "bg-success" : state === "connecting" ? "bg-warning" : "bg-fg-subtle"}`} />
         {state === "live" ? "Live alerts on" : state === "connecting" ? "Connecting…" : state === "down" ? "Alerts offline · reconnecting" : "Live alerts off"}
       </span>
