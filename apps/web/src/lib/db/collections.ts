@@ -1,5 +1,5 @@
 import type { Db } from "mongodb";
-import type { ChunkDoc, ConversationDoc, MembershipDoc, MessageDoc, PageDoc, SourceDoc, UserDoc, WorkspaceDoc } from "./types";
+import type { ChunkDoc, ConversationDoc, EvalCaseDoc, EvalRunDoc, MembershipDoc, MessageDoc, PageDoc, SourceDoc, UserDoc, WorkspaceDoc } from "./types";
 
 export const COLLECTIONS = {
   users: "users",
@@ -10,10 +10,14 @@ export const COLLECTIONS = {
   chunks: "chunks",
   conversations: "conversations",
   messages: "messages",
+  evalCases: "eval_cases",
+  evalRuns: "eval_runs",
 } as const;
 
 export const conversations = (db: Db) => db.collection<ConversationDoc>(COLLECTIONS.conversations);
 export const messages = (db: Db) => db.collection<MessageDoc>(COLLECTIONS.messages);
+export const evalCases = (db: Db) => db.collection<EvalCaseDoc>(COLLECTIONS.evalCases);
+export const evalRuns = (db: Db) => db.collection<EvalRunDoc>(COLLECTIONS.evalRuns);
 
 export const users = (db: Db) => db.collection<UserDoc>(COLLECTIONS.users);
 export const workspaces = (db: Db) => db.collection<WorkspaceDoc>(COLLECTIONS.workspaces);

@@ -1,0 +1,8 @@
+{
+  "_comment": "Regression gate for the Ali Shoes demo set with real providers (EVALS_REAL=1). Numbers are set from the first real run and must only be changed with a committed results file explaining why.",
+  "accuracy": 0.0,
+  "citationHitRate": 0.0,
+  "correctRefusals": 0.0,
+  "tolerance": 0.1,
+  "status": "unset: no real-provider run has been recorded yet"
+}

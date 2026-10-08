@@ -1,5 +1,5 @@
 import type { Db } from "mongodb";
-import { chunks, conversations, memberships, messages, pages, sources, users, workspaces } from "./collections";
+import { chunks, conversations, evalCases, evalRuns, memberships, messages, pages, sources, users, workspaces } from "./collections";
 import { EMBEDDING_DIMENSIONS } from "../ingest/embeddings";
 
 export const CHUNK_VECTOR_INDEX = "chunks_embedding";
@@ -22,6 +22,8 @@ export async function ensureIndexes(db: Db): Promise<void> {
     messages(db).createIndex({ conversationId: 1, createdAt: 1 }),
     messages(db).createIndex({ workspaceId: 1, createdAt: -1 }),
     db.collection("ratelimits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    evalCases(db).createIndex({ workspaceId: 1, createdAt: 1 }),
+    evalRuns(db).createIndex({ workspaceId: 1, startedAt: -1 }),
   ]);
 }
 

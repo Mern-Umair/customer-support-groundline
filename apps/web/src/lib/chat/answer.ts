@@ -3,14 +3,13 @@ import type { HandoffReason } from "@groundline/shared";
 import { conversations, messages } from "../db/collections";
 import type { Citation, ConversationChannel, ConversationDoc, ConversationStatus, MessageDoc } from "../db/types";
 import type { Embedder } from "../ingest/embeddings";
-import { searchChunks, type RetrievedChunk } from "../ingest/retrieval";
-import { estimateCostUsd } from "../llm/pricing";
 import type { LLMProvider } from "../llm/types";
 import { publicRealtimeUrl, signRealtimeToken } from "../realtime/server";
 import { scoped } from "../tenant";
-import { parseAnswer } from "./citations";
+import { generateGrounded, TOP_K } from "./generate";
 import { broadcastMessage, requestHandoff, wantsHuman } from "./handoff";
-import { buildMessages, REFUSAL_SENTENCE } from "./prompt";
+
+export { MIN_RETRIEVAL_SCORE } from "./generate";
 
 export interface AnswerContext {
   db: Db;
@@ -54,10 +53,6 @@ export interface CitationDto {
   url?: string;
   pageNumber?: number;
 }
-
-/** Below this Atlas score (cosine mapped to 0..1) we do not bother the model. */
-export const MIN_RETRIEVAL_SCORE = 0.5;
-const TOP_K = 6;
 
 export const HANDOFF_NOTE = "I'm bringing in a teammate. They will reply right here; you can keep typing in the meantime.";
 export const HUMAN_MODE_NOTE = "A teammate has this conversation. They will reply here.";
@@ -117,13 +112,12 @@ async function visitorRealtime(ctx: AnswerContext, conversationId: ObjectId): Pr
  * Full turn as an async generator so a route handler can forward events as SSE:
  *  1. store the visitor message (and broadcast it);
  *  2. if a human owns the conversation, or the visitor asks for one, do not call the model;
- *  3. otherwise retrieve, prompt, stream, validate citations, store the answer with usage;
- *  4. a refusal triggers a handoff request (dashboard rings).
+ *  3. otherwise generate a grounded answer and store it with usage;
+ *  4. a refusal on the widget channel requests a handoff.
  */
 export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): AsyncGenerator<AnswerEvent> {
   const question = input.question.trim();
   if (!question) throw new ChatError("Ask a question");
-  const started = performance.now();
 
   const conversation = await getOrCreateConversation(ctx, input);
   const visitorMsg = await storeMessage(ctx, { conversationId: conversation._id, role: "visitor", content: question });
@@ -134,14 +128,12 @@ export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): A
   // Handoff applies to real visitors. The playground is the owner's test bench and stays AI-only.
   const handoffEnabled = input.channel === "widget";
 
-  // Human mode: the message is for the agent, not the model.
   if (conversation.status === "human") {
     yield { type: "handoff", reason: conversation.handoff?.reason ?? "visitor_asked", status: "human", note: HUMAN_MODE_NOTE, noteId: null };
     yield { type: "done", messageId: visitorMsg._id.toHexString(), role: "system", text: "", citations: [], refused: false, usage: null, retrieval: null };
     return;
   }
 
-  // Explicit request for a person: no model call, flag and ring.
   if (handoffEnabled && wantsHuman(question)) {
     const note = await storeMessage(ctx, { conversationId: conversation._id, role: "system", content: HANDOFF_NOTE });
     await conversations(ctx.db).updateOne(scoped(ctx.workspaceId, { _id: conversation._id }), { $inc: { messageCount: 1 } });
@@ -153,93 +145,68 @@ export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): A
 
   const history = (await recentHistory(ctx, conversation._id)).slice(0, -1); // exclude the message we just stored
 
-  let retrieved: RetrievedChunk[] = [];
-  let retrievalError: string | undefined;
-  try {
-    retrieved = await searchChunks(ctx.db, ctx.workspaceId, ctx.embedder, question, { k: TOP_K });
-  } catch (err) {
-    retrievalError = err instanceof Error ? err.message : String(err);
-  }
-  const relevant = retrieved.filter((c) => c.score >= MIN_RETRIEVAL_SCORE);
-  const { messages: prompt, used } = buildMessages({ workspaceName: ctx.workspaceName, question, chunks: relevant, history });
-
-  yield {
-    type: "sources",
-    sources: used.map((c, i) => ({ n: i + 1, chunkId: c.chunkId, title: c.title, url: c.url, pageNumber: c.pageNumber, score: c.score, preview: c.text.slice(0, 200) })),
+  // Generation is streamed through a queue so this generator can yield while the model runs.
+  const queue: AnswerEvent[] = [];
+  let wake: (() => void) | null = null;
+  const push = (ev: AnswerEvent) => {
+    queue.push(ev);
+    wake?.();
   };
-
-  let raw = "";
-  let usage: MessageDoc["usage"] | undefined;
-  let firstTokenMs: number | null = null;
-  let error: string | undefined;
-
-  if (used.length === 0) {
-    raw = REFUSAL_SENTENCE;
-    yield { type: "text", text: raw };
-    usage = { provider: ctx.llm.provider, model: ctx.llm.model, inputTokens: 0, outputTokens: 0, costUsd: 0, latencyMs: 0, firstTokenMs: null };
-  } else {
-    try {
-      for await (const ev of ctx.llm.stream(prompt, { signal: input.signal })) {
-        if (ev.type === "text") {
-          if (firstTokenMs === null) firstTokenMs = Math.round(performance.now() - started);
-          raw += ev.text;
-          yield { type: "text", text: ev.text };
-        } else {
-          const tokens = ev.usage ?? { inputTokens: 0, outputTokens: 0 };
-          usage = { provider: ctx.llm.provider, model: ctx.llm.model, inputTokens: tokens.inputTokens, outputTokens: tokens.outputTokens, costUsd: estimateCostUsd(ctx.llm.model, ev.usage), latencyMs: 0, firstTokenMs };
-        }
-      }
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
-      if (!raw) {
-        raw = REFUSAL_SENTENCE;
-        yield { type: "text", text: raw };
-      }
+  const generation = generateGrounded(ctx, {
+    question,
+    history,
+    signal: input.signal,
+    onSources: (used) => push({ type: "sources", sources: used.map((c, i) => ({ n: i + 1, chunkId: c.chunkId, title: c.title, url: c.url, pageNumber: c.pageNumber, score: c.score, preview: c.text.slice(0, 200) })) }),
+    onText: (text) => push({ type: "text", text }),
+  });
+  let finished = false;
+  void generation.finally(() => {
+    finished = true;
+    wake?.();
+  });
+  while (!finished || queue.length) {
+    if (queue.length) {
+      yield queue.shift()!;
+      continue;
     }
+    await new Promise<void>((resolve) => {
+      wake = resolve;
+    });
+    wake = null;
   }
+  const out = await generation;
 
-  const parsed = parseAnswer(raw, used.length);
-  const citations: Citation[] = parsed.cited.map((n) => {
-    const c = used[n - 1];
+  const citations: Citation[] = out.cited.map((n) => {
+    const c = out.used[n - 1];
     return { n, chunkId: new ObjectId(c.chunkId), sourceId: new ObjectId(c.sourceId), title: c.title, url: c.url, pageNumber: c.pageNumber };
   });
-  const latencyMs = Math.round(performance.now() - started);
-  const finalUsage: MessageDoc["usage"] = {
-    provider: ctx.llm.provider,
-    model: ctx.llm.model,
-    inputTokens: usage?.inputTokens ?? 0,
-    outputTokens: usage?.outputTokens ?? 0,
-    costUsd: usage?.costUsd ?? null,
-    latencyMs,
-    firstTokenMs,
-  };
-  const retrieval: MessageDoc["retrieval"] = { k: TOP_K, topScore: retrieved[0]?.score ?? null, considered: retrieved.length };
+  const retrieval: MessageDoc["retrieval"] = { k: TOP_K, topScore: out.retrieved[0]?.score ?? null, considered: out.retrieved.length };
 
   const assistantMsg = await storeMessage(ctx, {
     conversationId: conversation._id,
     role: "assistant",
-    content: parsed.text,
+    content: out.text,
     question,
     citations,
-    refused: parsed.refused,
+    refused: out.refused,
     retrieval,
-    usage: finalUsage,
-    ...(error || retrievalError ? { error: [error, retrievalError].filter(Boolean).join(" | ").slice(0, 500) } : {}),
+    usage: out.usage,
+    ...(out.error ? { error: out.error } : {}),
   });
   await conversations(ctx.db).updateOne(scoped(ctx.workspaceId, { _id: conversation._id }), {
     $set: { lastMessageAt: new Date() },
     $inc: {
       messageCount: 1,
-      "totals.inputTokens": finalUsage.inputTokens,
-      "totals.outputTokens": finalUsage.outputTokens,
-      "totals.costUsd": finalUsage.costUsd ?? 0,
-      "totals.latencyMs": latencyMs,
+      "totals.inputTokens": out.usage.inputTokens,
+      "totals.outputTokens": out.usage.outputTokens,
+      "totals.costUsd": out.usage.costUsd ?? 0,
+      "totals.latencyMs": out.usage.latencyMs,
       "totals.answers": 1,
-      "totals.refusals": parsed.refused ? 1 : 0,
+      "totals.refusals": out.refused ? 1 : 0,
     },
   });
 
-  if (parsed.refused && handoffEnabled) {
+  if (out.refused && handoffEnabled) {
     const rang = await requestHandoff(ctx.db, conversation, "low_confidence", question);
     if (rang) {
       const note = await storeMessage(ctx, { conversationId: conversation._id, role: "system", content: HANDOFF_NOTE });
@@ -252,10 +219,10 @@ export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): A
     type: "done",
     messageId: assistantMsg._id.toHexString(),
     role: "assistant",
-    text: parsed.text,
+    text: out.text,
     citations: citations.map((c) => ({ n: c.n, chunkId: c.chunkId.toHexString(), title: c.title, url: c.url, pageNumber: c.pageNumber })),
-    refused: parsed.refused,
-    usage: finalUsage,
+    refused: out.refused,
+    usage: out.usage,
     retrieval,
   };
 }

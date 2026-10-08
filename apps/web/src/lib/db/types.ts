@@ -16,6 +16,8 @@ export interface WorkspaceDoc {
   slug: string; // unique, used in URLs
   publicKey: string; // unique, embedded in the widget script tag (safe to expose)
   plan: PlanId;
+  /** When true, the latest eval run is shown at /evals/<slug>. */
+  evalsPublic?: boolean;
   createdBy: ObjectId;
   createdAt: Date;
 }
@@ -139,6 +141,83 @@ export interface MessageDoc extends TenantOwned {
   feedback?: { vote: "up" | "down"; at: Date };
   error?: string;
   createdAt: Date;
+}
+
+// ---------------------------------------------------------------------------
+// Evals
+// ---------------------------------------------------------------------------
+
+export type EvalCaseKind = "answerable" | "unanswerable";
+
+export interface EvalCaseDoc extends TenantOwned {
+  _id: ObjectId;
+  kind: EvalCaseKind;
+  question: string;
+  /** Reference answer for answerable cases. */
+  expectedAnswer?: string;
+  /** Substring of the expected source title or URL that a correct answer should cite. */
+  expectedSource?: string;
+  tags?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type EvalVerdict = "correct" | "partial" | "incorrect";
+
+export interface EvalResultDoc {
+  caseId: ObjectId;
+  kind: EvalCaseKind;
+  question: string;
+  expectedAnswer?: string;
+  expectedSource?: string;
+  answer: string;
+  refused: boolean;
+  citedTitles: string[];
+  /** For answerable cases with an expectedSource: did a citation match it? */
+  citedExpected: boolean | null;
+  verdict: EvalVerdict | null;
+  judgeReason: string | null;
+  latencyMs: number;
+  costUsd: number | null;
+  topScore: number | null;
+  error?: string;
+}
+
+export interface EvalMetrics {
+  cases: number;
+  answerable: number;
+  unanswerable: number;
+  correct: number;
+  partial: number;
+  incorrect: number;
+  /** correct / answerable (strict). */
+  accuracy: number | null;
+  /** (correct + partial) / answerable. */
+  accuracyLenient: number | null;
+  /** cited the expected source / answerable cases that had an expectedSource and were answered. */
+  citationHitRate: number | null;
+  /** refused answerable / answerable. */
+  overRefusal: number | null;
+  /** answered unanswerable / unanswerable. */
+  underRefusal: number | null;
+  avgLatencyMs: number | null;
+  costUsd: number;
+}
+
+export type EvalRunStatus = "running" | "done" | "failed";
+
+export interface EvalRunDoc extends TenantOwned {
+  _id: ObjectId;
+  status: EvalRunStatus;
+  /** What was under test and who judged it, pinned for comparability. */
+  config: { chatProvider: string; chatModel: string; embedder: string; judgeProvider: string; judgeModel: string; rubricVersion: string };
+  pending: ObjectId[];
+  results: EvalResultDoc[];
+  metrics: EvalMetrics;
+  createdBy: ObjectId;
+  startedAt: Date;
+  finishedAt?: Date;
+  error?: string;
 }
 
 /** A retrievable passage with its embedding. Vector index lives on `embedding`. */

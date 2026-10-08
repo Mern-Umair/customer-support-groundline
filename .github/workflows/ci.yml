@@ -26,6 +26,10 @@ jobs:
       - run: npm test
         env:
           MONGODB_URI_TEST: ${{ secrets.MONGODB_URI_TEST }}
+          # Optional real-provider eval gate: set the EVALS_REAL repository variable to "1" and add GEMINI_API_KEY.
+          # Without them the eval runner test uses the offline stand-ins and the regression gate is skipped.
+          EVALS_REAL: ${{ vars.EVALS_REAL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - run: npm run build -w apps/web
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI_TEST }}

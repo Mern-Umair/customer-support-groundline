@@ -10,6 +10,7 @@ const nav = [
   { href: "/dashboard/sources", label: "Knowledge sources" },
   { href: "/dashboard/playground", label: "Playground" },
   { href: "/dashboard/conversations", label: "Conversations" },
+  { href: "/dashboard/evals", label: "Evals" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
