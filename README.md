@@ -2,7 +2,7 @@
 
 Multi-tenant AI customer-support platform. A business adds its website URL and documents, gets a one-line chat widget, and its visitors get streamed answers grounded in that content with citations. When the AI cannot answer, a human is paged in real time and takes over the conversation. Accuracy is measured with a per-workspace eval set and published.
 
-**Status:** week 1 of 8 · [CI](https://github.com/Mern-Umair/customer-support-groundline/actions) ![CI](https://github.com/Mern-Umair/customer-support-groundline/actions/workflows/ci.yml/badge.svg) See [PLAN.md](PLAN.md) for the feature list and schedule, [BRIEF.md](BRIEF.md) for the why.
+**Status:** week 2 of 8 (auth, ingestion, vector search, grounded chat with citations in the playground) · [CI](https://github.com/Mern-Umair/customer-support-groundline/actions) ![CI](https://github.com/Mern-Umair/customer-support-groundline/actions/workflows/ci.yml/badge.svg) See [PLAN.md](PLAN.md) for the feature list and schedule, [BRIEF.md](BRIEF.md) for the why.
 
 ## Stack
 

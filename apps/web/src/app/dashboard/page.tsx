@@ -12,7 +12,7 @@ const steps = [
     href: "/dashboard/sources",
     status: "next",
   },
-  { title: "Test answers in the playground", body: "Ask questions and check the citations before anything goes live.", status: "soon" },
+  { title: "Test answers in the playground", body: "Ask questions and check the citations before anything goes live.", href: "/dashboard/playground", status: "next" },
   { title: "Install the widget", body: "One script tag on your site. Visitors get grounded answers with a human fallback.", status: "soon" },
 ];
 

@@ -88,6 +88,56 @@ export interface PageDoc extends TenantOwned {
   processedAt?: Date;
 }
 
+// ---------------------------------------------------------------------------
+// Conversations
+// ---------------------------------------------------------------------------
+
+export type ConversationChannel = "playground" | "widget";
+/** ai: assistant answers · human: an agent has taken over · closed: ended */
+export type ConversationStatus = "ai" | "human" | "closed";
+
+export interface ConversationDoc extends TenantOwned {
+  _id: ObjectId;
+  channel: ConversationChannel;
+  status: ConversationStatus;
+  /** Anonymous visitor id for widget chats; the user id for playground chats. */
+  participantId: string;
+  title?: string;
+  messageCount: number;
+  /** Rolling totals for the dashboard. */
+  totals: { inputTokens: number; outputTokens: number; costUsd: number; latencyMs: number; answers: number; refusals: number };
+  handoff?: { requestedAt: Date; reason: "low_confidence" | "visitor_asked" | "tool_needs_approval"; agentId?: ObjectId; takenAt?: Date };
+  createdAt: Date;
+  lastMessageAt: Date;
+}
+
+export type MessageRole = "visitor" | "assistant" | "agent";
+
+export interface Citation {
+  /** 1-based index as shown in the answer text. */
+  n: number;
+  chunkId: ObjectId;
+  sourceId: ObjectId;
+  title: string;
+  url?: string;
+  pageNumber?: number;
+}
+
+export interface MessageDoc extends TenantOwned {
+  _id: ObjectId;
+  conversationId: ObjectId;
+  role: MessageRole;
+  content: string;
+  /** Assistant messages only. */
+  citations?: Citation[];
+  refused?: boolean;
+  retrieval?: { k: number; topScore: number | null; considered: number };
+  usage?: { provider: string; model: string; inputTokens: number; outputTokens: number; costUsd: number | null; latencyMs: number; firstTokenMs: number | null };
+  feedback?: { vote: "up" | "down"; at: Date };
+  error?: string;
+  createdAt: Date;
+}
+
 /** A retrievable passage with its embedding. Vector index lives on `embedding`. */
 export interface ChunkDoc extends TenantOwned {
   _id: ObjectId;

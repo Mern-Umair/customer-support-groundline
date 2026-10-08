@@ -7,6 +7,7 @@ import { NavLinks } from "./nav-links";
 const nav = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/sources", label: "Knowledge sources" },
+  { href: "/dashboard/playground", label: "Playground" },
   { href: "/dashboard/conversations", label: "Conversations" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
