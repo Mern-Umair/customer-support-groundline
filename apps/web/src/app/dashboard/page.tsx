@@ -19,7 +19,7 @@ const steps = [
 export default async function DashboardOverview() {
   const { workspace } = await getCurrentContext();
   const db = await getDb();
-  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+  const since = thirtyDaysAgo();
   const [sourceCount, chunkCount, conversationCount, totals] = await Promise.all([
     sources(db).countDocuments(scoped(workspace._id)),
     chunks(db).countDocuments(scoped(workspace._id)),
@@ -85,4 +85,8 @@ export default async function DashboardOverview() {
       </Card>
     </div>
   );
+}
+
+function thirtyDaysAgo(): Date {
+  return new Date(Date.now() - 30 * 24 * 3600 * 1000);
 }
