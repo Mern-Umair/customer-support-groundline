@@ -4,6 +4,7 @@ import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { NavLinks } from "./nav-links";
 import { RealtimeAlerts } from "./realtime-alerts";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const nav = [
   { href: "/dashboard", label: "Overview" },
@@ -29,6 +30,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Badge tone={workspace.plan === "free" ? "neutral" : "accent"}>{workspace.plan === "free" ? "Free" : "Pro"}</Badge>
             <span className="text-xs capitalize text-fg-subtle">{role}</span>
           </div>
+          <WorkspaceSwitcher />
         </div>
         <div className="mt-5">
           <NavLinks items={nav} />

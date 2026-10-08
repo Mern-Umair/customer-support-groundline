@@ -17,6 +17,8 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
-  free: { maxSources: 5, maxPagesPerSite: 50, maxUploadBytes: 4 * 1024 * 1024, maxMessagesPerMonth: 200, maxSeats: 1 },
-  pro: { maxSources: 50, maxPagesPerSite: 500, maxUploadBytes: 4 * 1024 * 1024, maxMessagesPerMonth: 5000, maxSeats: 5 },
+  free: { maxSources: 5, maxPagesPerSite: 50, maxUploadBytes: 4 * 1024 * 1024, maxMessagesPerMonth: 200, maxSeats: 2 },
+  pro: { maxSources: 50, maxPagesPerSite: 500, maxUploadBytes: 4 * 1024 * 1024, maxMessagesPerMonth: 5000, maxSeats: 10 },
 };
+
+export const PLAN_PRICES_USD: Record<PlanId, number> = { free: 0, pro: 29 };

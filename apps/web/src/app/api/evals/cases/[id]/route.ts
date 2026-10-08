@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiContext, notFound, unauthorized } from "@/lib/auth/api";
+import { forbidden, isOwner } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db";
 import { evalCases } from "@/lib/db/collections";
 import { scoped, toObjectId } from "@/lib/tenant";
@@ -7,6 +8,7 @@ import { scoped, toObjectId } from "@/lib/tenant";
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
+  if (!isOwner(ctx)) return forbidden();
   const { id } = await params;
   const caseId = toObjectId(id);
   if (!caseId) return notFound();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, getApiContext, unauthorized } from "@/lib/auth/api";
+import { forbidden, isOwner } from "@/lib/auth/roles";
 import { sources } from "@/lib/db/collections";
 import { pipelineContextFrom } from "@/lib/ingest/context";
 import { toSourceDto } from "@/lib/ingest/dto";
@@ -23,6 +24,7 @@ const JsonBody = z.union([
 export async function POST(request: Request) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
+  if (!isOwner(ctx)) return forbidden();
   const pc = await pipelineContextFrom(ctx);
 
   try {

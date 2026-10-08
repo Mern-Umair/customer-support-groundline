@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiContext, unauthorized } from "@/lib/auth/api";
+import { forbidden, isOwner } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db";
 import { seedMockOrders } from "@/lib/tools/registry";
 
@@ -7,6 +8,7 @@ import { seedMockOrders } from "@/lib/tools/registry";
 export async function POST() {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
+  if (!isOwner(ctx)) return forbidden();
   const created = await seedMockOrders(await getDb(), ctx.workspace._id);
   return NextResponse.json({ created });
 }

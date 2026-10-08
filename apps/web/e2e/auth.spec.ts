@@ -66,7 +66,7 @@ test.describe.serial("authentication", () => {
     await expect(page).toHaveURL(/\/dashboard$/);
 
     await page.goto("/dashboard/settings");
-    await expect(page.getByRole("main").getByText(email)).toBeVisible();
+    await expect(page.getByRole("main").getByText(email).first()).toBeVisible();
 
     await page.getByRole("button", { name: "Log out" }).click();
     await expect(page).toHaveURL(/\/login$/);

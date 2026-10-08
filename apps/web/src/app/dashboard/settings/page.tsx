@@ -1,25 +1,36 @@
 import { headers } from "next/headers";
+import { PLAN_LIMITS, PLAN_PRICES_USD } from "@groundline/shared";
 import { getCurrentContext } from "@/lib/auth/dal";
+import { billingConfigured } from "@/lib/billing/stripe";
 import { getDb } from "@/lib/db";
 import { workspaces } from "@/lib/db/collections";
+import { listTeam, seatUsage } from "@/lib/team/invites";
 import { ALL_TOOLS } from "@/lib/tools/registry";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
+import { BillingSettings } from "./billing-settings";
+import { TeamSettings } from "./team-settings";
 import { ToolsSettings } from "./tools-settings";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
   const { user, workspace, role } = await getCurrentContext();
-  const ws = await workspaces(await getDb()).findOne({ _id: workspace._id }, { projection: { toolsEnabled: 1 } });
+  const { billing: billingNotice } = await searchParams;
+  const db = await getDb();
+  const [ws, team, seats] = await Promise.all([
+    workspaces(db).findOne({ _id: workspace._id }, { projection: { toolsEnabled: 1, billing: 1, plan: 1 } }),
+    listTeam(db, workspace._id),
+    seatUsage(db, workspace._id, workspace.plan),
+  ]);
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = `${proto}://${host}`;
   const snippet = `<script src="${origin}/widget.js" data-key="${workspace.publicKey}" async></script>`;
+  const isOwner = role === "owner";
 
   const rows = [
     ["Workspace", workspace.name],
     ["Slug", workspace.slug],
-    ["Plan", workspace.plan],
     ["Your role", role],
     ["Account email", user.email],
   ];
@@ -44,8 +55,28 @@ export default async function SettingsPage() {
       </section>
 
       <section className="mt-10">
+        <h2 className="text-base font-medium">Team</h2>
+        <TeamSettings members={team.members} invites={team.invites} seats={seats} origin={origin} isOwner={isOwner} selfId={user._id.toHexString()} />
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-base font-medium">Plan and billing</h2>
+        <BillingSettings
+          plan={ws?.plan ?? workspace.plan}
+          status={ws?.billing?.status}
+          periodEnd={ws?.billing?.currentPeriodEnd?.toISOString()}
+          configured={billingConfigured()}
+          hasCustomer={Boolean(ws?.billing?.stripeCustomerId)}
+          isOwner={isOwner}
+          limits={{ free: { ...PLAN_LIMITS.free }, pro: { ...PLAN_LIMITS.pro } }}
+          priceUsd={PLAN_PRICES_USD.pro}
+          notice={billingNotice === "success" || billingNotice === "cancelled" ? billingNotice : undefined}
+        />
+      </section>
+
+      <section className="mt-10">
         <h2 className="text-base font-medium">Agent tools</h2>
-        <ToolsSettings enabled={Boolean(ws?.toolsEnabled)} isOwner={role === "owner"} tools={ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, sideEffect: t.sideEffect }))} />
+        <ToolsSettings enabled={Boolean(ws?.toolsEnabled)} isOwner={isOwner} tools={ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, sideEffect: t.sideEffect }))} />
       </section>
 
       <section className="mt-10">
@@ -58,7 +89,6 @@ export default async function SettingsPage() {
             </div>
           ))}
         </Card>
-        <p className="mt-4 text-xs text-fg-subtle">Team invites and billing arrive in week 7.</p>
       </section>
     </div>
   );

@@ -5,14 +5,15 @@ import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Log in · Groundline" };
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ invite?: string }> }) {
+  const { invite } = await searchParams;
   return (
     <Card className="p-8">
       <h1 className="text-2xl font-semibold tracking-tight">Log in</h1>
-      <LoginForm />
+      <LoginForm invite={invite} />
       <p className="mt-6 text-sm text-fg-muted">
         New here?{" "}
-        <Link href="/signup" className="font-medium text-accent underline-offset-4 hover:underline">
+        <Link href={invite ? `/signup?invite=${encodeURIComponent(invite)}` : "/signup"} className="font-medium text-accent underline-offset-4 hover:underline">
           Create a workspace
         </Link>
       </p>

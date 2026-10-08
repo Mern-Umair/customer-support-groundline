@@ -9,6 +9,10 @@ const schema = z.object({
   REALTIME_URL: z.string().url().optional(),
   /** Shared secret for POST {REALTIME_URL}/emit */
   REALTIME_SECRET: z.string().optional(),
+  /** Stripe test mode. All optional: without them billing is reported as not configured. */
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

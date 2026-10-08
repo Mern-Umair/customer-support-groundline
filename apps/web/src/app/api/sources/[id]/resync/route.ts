@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiContext, notFound, unauthorized } from "@/lib/auth/api";
+import { forbidden, isOwner } from "@/lib/auth/roles";
 import { pipelineContextFrom } from "@/lib/ingest/context";
 import { toSourceDto } from "@/lib/ingest/dto";
 import { resyncSource, SourceLimitError } from "@/lib/ingest/pipeline";
@@ -9,6 +10,7 @@ import { toObjectId } from "@/lib/tenant";
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
+  if (!isOwner(ctx)) return forbidden();
   const { id } = await params;
   const sourceId = toObjectId(id);
   if (!sourceId) return notFound();

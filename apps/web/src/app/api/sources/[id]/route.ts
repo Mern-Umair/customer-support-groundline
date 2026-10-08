@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiContext, notFound, unauthorized } from "@/lib/auth/api";
+import { forbidden, isOwner } from "@/lib/auth/roles";
 import { pages, sources } from "@/lib/db/collections";
 import { pipelineContextFrom } from "@/lib/ingest/context";
 import { toPageDto, toSourceDto } from "@/lib/ingest/dto";
@@ -27,6 +28,7 @@ export async function GET(_request: Request, { params }: Params) {
 export async function DELETE(_request: Request, { params }: Params) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
+  if (!isOwner(ctx)) return forbidden();
   const { id } = await params;
   const sourceId = toObjectId(id);
   if (!sourceId) return notFound();

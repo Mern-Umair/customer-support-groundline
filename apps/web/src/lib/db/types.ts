@@ -20,6 +20,12 @@ export interface WorkspaceDoc {
   evalsPublic?: boolean;
   /** When true, the assistant may call the built-in tools (order lookup, tickets, appointments). */
   toolsEnabled?: boolean;
+  billing?: {
+    stripeCustomerId?: string;
+    subscriptionId?: string;
+    status?: string;
+    currentPeriodEnd?: Date;
+  };
   createdBy: ObjectId;
   createdAt: Date;
 }
@@ -32,6 +38,19 @@ export interface MembershipDoc {
   workspaceId: ObjectId;
   role: MembershipRole;
   createdAt: Date;
+}
+
+/** An invitation link to join a workspace. Accepted once; expires. */
+export interface InviteDoc extends TenantOwned {
+  _id: ObjectId;
+  token: string; // unique, unguessable
+  email: string; // lower-cased; the link is shareable, this is who it was meant for
+  role: MembershipRole;
+  invitedBy: ObjectId;
+  createdAt: Date;
+  expiresAt: Date;
+  acceptedAt?: Date;
+  acceptedBy?: ObjectId;
 }
 
 /** Marker for documents that belong to a tenant. */

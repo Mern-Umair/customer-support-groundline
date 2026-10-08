@@ -3,9 +3,10 @@ import { randomBytes } from "node:crypto";
 import { MongoServerError, ObjectId } from "mongodb";
 import { getDb } from "../db";
 import { memberships, users, workspaces } from "../db/collections";
+import { acceptInvite, TeamError } from "../team/invites";
 import { hashPassword, verifyPassword } from "./password";
 
-export type AuthErrorCode = "email_taken" | "invalid_credentials";
+export type AuthErrorCode = "email_taken" | "invalid_credentials" | "invite_invalid";
 
 export class AuthError extends Error {
   constructor(public readonly code: AuthErrorCode) {
@@ -18,7 +19,10 @@ export interface SignUpInput {
   name: string;
   email: string;
   password: string;
-  workspaceName: string;
+  /** Required unless joining via invite. */
+  workspaceName?: string;
+  /** Invite token: join that workspace instead of creating one. */
+  inviteToken?: string;
 }
 
 export interface AuthResult {
@@ -60,36 +64,52 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
     throw err;
   }
 
+  if (input.inviteToken) {
+    try {
+      const { workspaceId } = await acceptInvite(db, input.inviteToken, userId);
+      return { userId: userId.toHexString(), workspaceId: workspaceId.toHexString() };
+    } catch (err) {
+      if (err instanceof TeamError) {
+        await users(db).deleteOne({ _id: userId }); // do not leave an orphan account
+        throw new AuthError("invite_invalid");
+      }
+      throw err;
+    }
+  }
+
   const workspaceId = new ObjectId();
+  const workspaceName = (input.workspaceName ?? "").trim() || `${input.name.trim()}'s workspace`;
   await workspaces(db).insertOne({
     _id: workspaceId,
-    name: input.workspaceName.trim(),
-    slug: slugify(input.workspaceName),
+    name: workspaceName,
+    slug: slugify(workspaceName),
     publicKey: generatePublicKey(),
     plan: "free",
     createdBy: userId,
     createdAt: now,
   });
-  await memberships(db).insertOne({
-    _id: new ObjectId(),
-    userId,
-    workspaceId,
-    role: "owner",
-    createdAt: now,
-  });
-
+  await memberships(db).insertOne({ _id: new ObjectId(), userId, workspaceId, role: "owner", createdAt: now });
   return { userId: userId.toHexString(), workspaceId: workspaceId.toHexString() };
 }
 
-export async function signIn(email: string, password: string): Promise<AuthResult> {
+export async function signIn(email: string, password: string, inviteToken?: string): Promise<AuthResult> {
   const db = await getDb();
   const user = await users(db).findOne({ email: email.trim().toLowerCase() });
   // Always run the hash comparison so timing does not reveal whether the email exists.
   const ok = await verifyPassword(password, user?.passwordHash ?? "$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv");
   if (!user || !ok) throw new AuthError("invalid_credentials");
 
+  if (inviteToken) {
+    try {
+      const { workspaceId } = await acceptInvite(db, inviteToken, user._id);
+      return { userId: user._id.toHexString(), workspaceId: workspaceId.toHexString() };
+    } catch (err) {
+      if (!(err instanceof TeamError)) throw err;
+      // Fall through: a used/expired invite should not block a normal login.
+    }
+  }
+
   const membership = await memberships(db).findOne({ userId: user._id }, { sort: { createdAt: 1 } });
   if (!membership) throw new AuthError("invalid_credentials");
-
   return { userId: user._id.toHexString(), workspaceId: membership.workspaceId.toHexString() };
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { badRequest, getApiContext, unauthorized } from "@/lib/auth/api";
+import { forbidden, isOwner } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db";
 import { evalRuns } from "@/lib/db/collections";
 import { evalContextFrom } from "@/lib/evals/context";
@@ -19,6 +20,7 @@ export async function GET() {
 export async function POST() {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
+  if (!isOwner(ctx)) return forbidden();
   try {
     const run = await createRun(await evalContextFrom(ctx));
     return NextResponse.json({ run: toRunDto(run) }, { status: 201 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { badRequest, getApiContext, unauthorized } from "@/lib/auth/api";
+import { forbidden, isOwner } from "@/lib/auth/roles";
 import { getDb } from "@/lib/db";
 import { evalCases } from "@/lib/db/collections";
 import { insertCases } from "@/lib/evals/demo/load";
@@ -28,6 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const ctx = await getApiContext();
   if (!ctx) return unauthorized();
+  if (!isOwner(ctx)) return forbidden();
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return badRequest("Each case needs a kind and a question");
   const items = Array.isArray(parsed.data) ? parsed.data : [parsed.data];
