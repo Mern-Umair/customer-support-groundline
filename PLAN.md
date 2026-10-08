@@ -52,6 +52,8 @@ WhatsApp / Slack / email channels, multi-language UI, SSO, custom domains, analy
 | 7 | 19–25 Nov | Team invites + roles; Stripe test billing; plan limits; rate limiting; tenant-isolation and prompt-injection test suites. | Two tenants cannot see each other's data (tested); Pro checkout works in test mode. | "Multi-tenant isolation: the tests I wrote to prove it" |
 | 8 | 26 Nov–2 Dec | Polish, demo video, README as product spec, evals re-run, launch. Update Upwork profile; apply to 5 matching postings and YC remote roles with the demo link. | Launch post published; 5 applications sent. | Launch post tagging Intercom, Chatbase, Tidio, Botpress, Crisp, Voiceflow |
 
+**LinkedIn (decided 8 Oct 2026):** no weekly posts. One launch post when the project is complete (week 8). The "LinkedIn post" column above is kept only as a log of what each week could show; the drafts in docs/linkedin stay for the launch post. Following and commenting (docs/linkedin/targets.md) still starts now so the launch post has an audience.
+
 Buffer: weeks 5–8 each carry ~4 h of slack. If weeks 1–4 slip, evals (week 5) is protected; agent tools (week 6) is the first thing to shrink.
 
 ## 5. Repo setup
