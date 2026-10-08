@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   try {
     const events = answerQuestion(
-      { db, workspaceId: ws._id, workspaceName: ws.name, embedder: getEmbedder(), llm: getChatProvider() },
+      { db, workspaceId: ws._id, workspaceName: ws.name, embedder: getEmbedder(), llm: getChatProvider(), toolsEnabled: Boolean(ws.toolsEnabled) },
       { channel: "widget", participantId: visitorId, conversationId: convoId ?? undefined, question: message, signal: request.signal },
     );
     return sseResponse(events, request.signal);

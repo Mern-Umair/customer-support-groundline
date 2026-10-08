@@ -1,5 +1,5 @@
 import type { Db } from "mongodb";
-import type { ChunkDoc, ConversationDoc, EvalCaseDoc, EvalRunDoc, MembershipDoc, MessageDoc, PageDoc, SourceDoc, UserDoc, WorkspaceDoc } from "./types";
+import type { ChunkDoc, ConversationDoc, EvalCaseDoc, EvalRunDoc, MembershipDoc, MessageDoc, PageDoc, PendingActionDoc, SourceDoc, UserDoc, WorkspaceDoc } from "./types";
 
 export const COLLECTIONS = {
   users: "users",
@@ -12,7 +12,10 @@ export const COLLECTIONS = {
   messages: "messages",
   evalCases: "eval_cases",
   evalRuns: "eval_runs",
+  pendingActions: "pending_actions",
 } as const;
+
+export const pendingActions = (db: Db) => db.collection<PendingActionDoc>(COLLECTIONS.pendingActions);
 
 export const conversations = (db: Db) => db.collection<ConversationDoc>(COLLECTIONS.conversations);
 export const messages = (db: Db) => db.collection<MessageDoc>(COLLECTIONS.messages);

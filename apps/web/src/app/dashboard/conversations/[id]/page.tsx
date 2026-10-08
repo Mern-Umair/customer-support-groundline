@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentContext } from "@/lib/auth/dal";
 import { getDb } from "@/lib/db";
-import { conversations, messages } from "@/lib/db/collections";
+import { conversations, messages, pendingActions } from "@/lib/db/collections";
 import { scoped, toObjectId } from "@/lib/tenant";
+import { toActionDto } from "@/lib/tools/dto";
 import { Stat } from "@/components/ui/card";
+import { ActionsPanel } from "./actions-panel";
 import { LiveThread, type ThreadMessage } from "./live-thread";
 
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +17,10 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   const db = await getDb();
   const convo = await conversations(db).findOne(scoped(ctx.workspace._id, { _id: convoId }));
   if (!convo) notFound();
-  const list = await messages(db).find(scoped(ctx.workspace._id, { conversationId: convoId })).sort({ createdAt: 1 }).toArray();
+  const [list, actions] = await Promise.all([
+    messages(db).find(scoped(ctx.workspace._id, { conversationId: convoId })).sort({ createdAt: 1 }).toArray(),
+    pendingActions(db).find(scoped(ctx.workspace._id, { conversationId: convoId })).sort({ requestedAt: -1 }).toArray(),
+  ]);
 
   const thread: ThreadMessage[] = list.map((m) => ({
     id: m._id.toHexString(),
@@ -26,7 +31,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     refused: m.refused,
     meta:
       m.role === "assistant" && m.usage
-        ? `${m.usage.model} · ${m.usage.latencyMs} ms · ${m.usage.inputTokens + m.usage.outputTokens} tokens · ${m.usage.costUsd === null ? "cost n/a" : `$${m.usage.costUsd.toFixed(5)}`}${m.retrieval ? ` · top score ${m.retrieval.topScore?.toFixed(2) ?? "–"}` : ""}${m.feedback ? ` · ${m.feedback.vote === "up" ? "👍" : "👎"}` : ""}${m.error ? ` · error: ${m.error}` : ""}`
+        ? `${m.usage.model} · ${m.usage.latencyMs} ms · ${m.usage.inputTokens + m.usage.outputTokens} tokens · ${m.usage.costUsd === null ? "cost n/a" : `$${m.usage.costUsd.toFixed(5)}`}${m.retrieval ? ` · top score ${m.retrieval.topScore?.toFixed(2) ?? "–"}` : ""}${m.toolCalls?.length ? ` · tools: ${m.toolCalls.map((t) => `${t.name}${t.pending ? " (pending)" : ""}`).join(", ")}` : ""}${m.feedback ? ` · ${m.feedback.vote === "up" ? "👍" : "👎"}` : ""}${m.error ? ` · error: ${m.error}` : ""}`
         : undefined,
   }));
 
@@ -50,6 +55,14 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
         <Stat label="Cost" value={convo.totals.costUsd ? `$${convo.totals.costUsd.toFixed(4)}` : "$0"} hint={`${convo.totals.inputTokens + convo.totals.outputTokens} tokens`} />
         <Stat label="Avg latency" value={`${Math.round(convo.totals.latencyMs / answers)} ms`} />
       </section>
+
+      {actions.length ? (
+        <section className="mt-8">
+          <h2 className="text-base font-medium">Actions proposed by the assistant</h2>
+          <p className="mt-1 text-xs text-fg-subtle">Side-effecting tools run only after someone on the team approves them.</p>
+          <ActionsPanel conversationId={convo._id.toHexString()} initialActions={actions.map(toActionDto)} />
+        </section>
+      ) : null}
 
       <div className="mt-8">
         <LiveThread conversationId={convo._id.toHexString()} initialStatus={convo.status} initialMessages={thread} agentName={ctx.user.name} />

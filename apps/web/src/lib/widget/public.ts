@@ -6,14 +6,14 @@ import type { WorkspaceDoc } from "../db/types";
 import { checkRateLimit } from "../ratelimit";
 import { scoped } from "../tenant";
 
-export type PublicWorkspace = Pick<WorkspaceDoc, "_id" | "name" | "plan" | "publicKey">;
+export type PublicWorkspace = Pick<WorkspaceDoc, "_id" | "name" | "plan" | "publicKey" | "toolsEnabled">;
 
 const KEY_RE = /^wk_[0-9a-f]{32}$/;
 
 /** Resolves a widget public key to its workspace. Keys are public; they only select a tenant. */
 export async function findWorkspaceByPublicKey(db: Db, key: string): Promise<PublicWorkspace | null> {
   if (!KEY_RE.test(key)) return null;
-  return workspaces(db).findOne({ publicKey: key }, { projection: { _id: 1, name: 1, plan: 1, publicKey: 1 } });
+  return workspaces(db).findOne({ publicKey: key }, { projection: { _id: 1, name: 1, plan: 1, publicKey: 1, toolsEnabled: 1 } });
 }
 
 export type Gate = { ok: true } | { ok: false; status: 429; message: string };

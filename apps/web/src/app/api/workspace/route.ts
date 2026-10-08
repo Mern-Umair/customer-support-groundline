@@ -4,7 +4,7 @@ import { badRequest, getApiContext, unauthorized } from "@/lib/auth/api";
 import { getDb } from "@/lib/db";
 import { workspaces } from "@/lib/db/collections";
 
-const Body = z.object({ evalsPublic: z.boolean().optional() });
+const Body = z.object({ evalsPublic: z.boolean().optional(), toolsEnabled: z.boolean().optional() });
 
 /** Workspace settings an owner can change. */
 export async function PATCH(request: Request) {
@@ -15,6 +15,7 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return badRequest("Invalid settings");
   const update: Record<string, unknown> = {};
   if (parsed.data.evalsPublic !== undefined) update.evalsPublic = parsed.data.evalsPublic;
+  if (parsed.data.toolsEnabled !== undefined) update.toolsEnabled = parsed.data.toolsEnabled;
   await workspaces(await getDb()).updateOne({ _id: ctx.workspace._id }, { $set: update });
   return NextResponse.json({ ok: true, ...update });
 }

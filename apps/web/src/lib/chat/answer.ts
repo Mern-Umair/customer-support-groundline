@@ -8,6 +8,8 @@ import { publicRealtimeUrl, signRealtimeToken } from "../realtime/server";
 import { scoped } from "../tenant";
 import { generateGrounded, TOP_K } from "./generate";
 import { broadcastMessage, requestHandoff, wantsHuman } from "./handoff";
+import { runOrDefer } from "../tools/actions";
+import { ALL_TOOLS } from "../tools/registry";
 
 export { MIN_RETRIEVAL_SCORE } from "./generate";
 
@@ -17,6 +19,8 @@ export interface AnswerContext {
   workspaceName: string;
   embedder: Embedder;
   llm: LLMProvider;
+  /** Built-in tools are offered to the model only when the owner enabled them. */
+  toolsEnabled?: boolean;
 }
 
 export interface AnswerInput {
@@ -33,6 +37,7 @@ export type AnswerEvent =
   | { type: "sources"; sources: SourceSummary[] }
   | { type: "text"; text: string }
   | { type: "handoff"; reason: HandoffReason; status: ConversationStatus; note: string; noteId: string | null }
+  | { type: "tool"; name: string; summary: string; pending: boolean }
   | { type: "done"; messageId: string; role: "assistant" | "system"; text: string; citations: CitationDto[]; refused: boolean; usage: MessageDoc["usage"] | null; retrieval: MessageDoc["retrieval"] | null }
   | { type: "error"; message: string };
 
@@ -152,12 +157,24 @@ export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): A
     queue.push(ev);
     wake?.();
   };
+  const toolNotes: NonNullable<MessageDoc["toolCalls"]> = [];
   const generation = generateGrounded(ctx, {
     question,
     history,
     signal: input.signal,
     onSources: (used) => push({ type: "sources", sources: used.map((c, i) => ({ n: i + 1, chunkId: c.chunkId, title: c.title, url: c.url, pageNumber: c.pageNumber, score: c.score, preview: c.text.slice(0, 200) })) }),
     onText: (text) => push({ type: "text", text }),
+    ...(ctx.toolsEnabled
+      ? {
+          tools: ALL_TOOLS,
+          runTool: async (call) => {
+            const r = await runOrDefer(ctx.db, ctx.workspaceId, conversation._id, call);
+            toolNotes.push({ name: call.name, args: call.args, summary: r.summary, pending: Boolean(r.pending) });
+            push({ type: "tool", name: call.name, summary: r.summary, pending: Boolean(r.pending) });
+            return r.result;
+          },
+        }
+      : {}),
   });
   let finished = false;
   void generation.finally(() => {
@@ -191,6 +208,7 @@ export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): A
     refused: out.refused,
     retrieval,
     usage: out.usage,
+    ...(toolNotes.length ? { toolCalls: toolNotes } : {}),
     ...(out.error ? { error: out.error } : {}),
   });
   await conversations(ctx.db).updateOne(scoped(ctx.workspaceId, { _id: conversation._id }), {

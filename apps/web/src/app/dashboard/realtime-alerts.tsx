@@ -2,12 +2,25 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { REALTIME_EVENTS, type HandoffRequested } from "@groundline/shared";
+import { REALTIME_EVENTS, type ActionPending, type HandoffRequested } from "@groundline/shared";
 import { connectRealtime } from "@/lib/realtime/client";
 
-interface Alert extends HandoffRequested {
-  id: string;
-}
+type Alert = { id: string; conversationId: string; title: string; body: string; detail: string };
+
+const fromHandoff = (h: HandoffRequested): Alert => ({
+  id: `${h.conversationId}-${h.requestedAt}`,
+  conversationId: h.conversationId,
+  title: "Visitor needs a human",
+  body: `“${h.lastVisitorMessage}”`,
+  detail: h.reason === "visitor_asked" ? "Asked for a person" : h.reason === "low_confidence" ? "Assistant could not answer" : "Needs approval",
+});
+const fromAction = (a: ActionPending): Alert => ({
+  id: `action-${a.actionId}`,
+  conversationId: a.conversationId,
+  title: "Action needs approval",
+  body: a.summary,
+  detail: `Proposed by the assistant (${a.tool})`,
+});
 
 /**
  * Mounted in the dashboard layout. Connects as an agent and shows a toast when a
@@ -29,18 +42,22 @@ export function RealtimeAlerts() {
       const socket = connectRealtime(url, token);
       const onConnect = () => setState("live");
       const onDisconnect = () => setState("down");
-      const onHandoff = (h: HandoffRequested) => {
-        setAlerts((a) => [{ ...h, id: `${h.conversationId}-${h.requestedAt}` }, ...a].slice(0, 5));
+      const show = (alert: Alert) => {
+        setAlerts((a) => [alert, ...a.filter((x) => x.id !== alert.id)].slice(0, 5));
         if (typeof document !== "undefined") document.title = `● Needs attention · Groundline`;
       };
+      const onHandoff = (h: HandoffRequested) => show(fromHandoff(h));
+      const onAction = (a: ActionPending) => show(fromAction(a));
       socket.on("connect", onConnect);
       socket.on("disconnect", onDisconnect);
       socket.on(REALTIME_EVENTS.handoffRequested, onHandoff);
+      socket.on(REALTIME_EVENTS.actionPending, onAction);
       if (socket.connected) onConnect();
       cleanup = () => {
         socket.off("connect", onConnect);
         socket.off("disconnect", onDisconnect);
         socket.off(REALTIME_EVENTS.handoffRequested, onHandoff);
+        socket.off(REALTIME_EVENTS.actionPending, onAction);
       };
     })();
     return () => {
@@ -59,13 +76,13 @@ export function RealtimeAlerts() {
         {alerts.map((a) => (
           <div key={a.id} className="animate-fade-up rounded-lg border border-warning/40 bg-surface p-3 shadow-card" role="status">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium">Visitor needs a human</p>
+              <p className="text-sm font-medium">{a.title}</p>
               <button type="button" aria-label="Dismiss" onClick={() => setAlerts((list) => list.filter((x) => x.id !== a.id))} className="text-fg-subtle hover:text-fg">
                 ✕
               </button>
             </div>
-            <p className="mt-1 line-clamp-2 text-xs text-fg-muted">&ldquo;{a.lastVisitorMessage}&rdquo;</p>
-            <p className="mt-0.5 text-[10px] text-fg-subtle">{a.reason === "visitor_asked" ? "Asked for a person" : a.reason === "low_confidence" ? "Assistant could not answer" : "Needs approval"}</p>
+            <p className="mt-1 line-clamp-2 text-xs text-fg-muted">{a.body}</p>
+            <p className="mt-0.5 text-[10px] text-fg-subtle">{a.detail}</p>
             <Link href={`/dashboard/conversations/${a.conversationId}`} onClick={() => setAlerts((list) => list.filter((x) => x.id !== a.id))} className="mt-2 inline-flex rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover">
               Open conversation
             </Link>

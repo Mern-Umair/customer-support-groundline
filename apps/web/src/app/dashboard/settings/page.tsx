@@ -1,10 +1,15 @@
 import { headers } from "next/headers";
 import { getCurrentContext } from "@/lib/auth/dal";
+import { getDb } from "@/lib/db";
+import { workspaces } from "@/lib/db/collections";
+import { ALL_TOOLS } from "@/lib/tools/registry";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
+import { ToolsSettings } from "./tools-settings";
 
 export default async function SettingsPage() {
   const { user, workspace, role } = await getCurrentContext();
+  const ws = await workspaces(await getDb()).findOne({ _id: workspace._id }, { projection: { toolsEnabled: 1 } });
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -36,6 +41,11 @@ export default async function SettingsPage() {
             </ButtonLink>
           </div>
         </Card>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-base font-medium">Agent tools</h2>
+        <ToolsSettings enabled={Boolean(ws?.toolsEnabled)} isOwner={role === "owner"} tools={ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, sideEffect: t.sideEffect }))} />
       </section>
 
       <section className="mt-10">

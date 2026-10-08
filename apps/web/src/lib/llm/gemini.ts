@@ -7,14 +7,54 @@ export interface GeminiProviderOptions {
   fetchImpl?: typeof fetch;
 }
 
+interface GeminiPart {
+  text?: string;
+  thought?: boolean;
+  functionCall?: { id?: string; name?: string; args?: Record<string, unknown> };
+  functionResponse?: { id?: string; name: string; response: Record<string, unknown> };
+}
+interface GeminiContent {
+  role: "user" | "model";
+  parts: GeminiPart[];
+}
 interface GeminiChunk {
-  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  candidates?: { content?: { parts?: GeminiPart[] }; finishReason?: string }[];
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
   promptFeedback?: { blockReason?: string };
   error?: { message?: string; status?: string };
 }
 
 export const DEFAULT_GEMINI_CHAT_MODEL = "gemini-3.5-flash-lite";
+
+/** Maps our provider-agnostic messages to Gemini `contents`, merging consecutive same-role turns. */
+export function toGeminiContents(messages: ChatMessage[]): GeminiContent[] {
+  const out: GeminiContent[] = [];
+  const push = (role: GeminiContent["role"], parts: GeminiPart[]) => {
+    const last = out[out.length - 1];
+    if (last && last.role === role) last.parts.push(...parts);
+    else out.push({ role, parts });
+  };
+  for (const m of messages) {
+    if (m.role === "system") continue;
+    if (m.role === "user") push("user", [{ text: m.content }]);
+    else if (m.role === "assistant") {
+      const parts: GeminiPart[] = [];
+      if (m.content) parts.push({ text: m.content });
+      for (const c of m.toolCalls ?? []) parts.push({ functionCall: { id: c.id, name: c.name, args: c.args } });
+      if (parts.length) push("model", parts);
+    } else if (m.role === "tool") {
+      let response: Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(m.content) as unknown;
+        response = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : { result: parsed };
+      } catch {
+        response = { result: m.content };
+      }
+      push("user", [{ functionResponse: { id: m.toolCallId, name: m.name ?? "tool", response } }]);
+    }
+  }
+  return out;
+}
 
 /** Gemini via REST `streamGenerateContent?alt=sse`. System prompt goes to `systemInstruction`. */
 export class GeminiProvider implements LLMProvider {
@@ -31,18 +71,18 @@ export class GeminiProvider implements LLMProvider {
 
   async *stream(messages: ChatMessage[], opts: StreamOptions = {}): AsyncIterable<StreamEvent> {
     const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-    const contents = messages
-      .filter((m) => m.role !== "system")
-      .map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
-
-    const body = {
+    const body: Record<string, unknown> = {
       ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-      contents,
+      contents: toGeminiContents(messages),
       generationConfig: {
         temperature: opts.temperature ?? 0.2,
         maxOutputTokens: opts.maxOutputTokens ?? 1024,
       },
     };
+    if (opts.tools?.length) {
+      body.tools = [{ functionDeclarations: opts.tools.map((t) => ({ name: t.name, description: t.description, parametersJsonSchema: t.parameters })) }];
+      body.toolConfig = { functionCallingConfig: { mode: "AUTO" } };
+    }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:streamGenerateContent?alt=sse`;
     const res = await this.fetchImpl(url, {
@@ -58,6 +98,7 @@ export class GeminiProvider implements LLMProvider {
 
     let usage: Usage | null = null;
     let finishReason: string | null = null;
+    let callIndex = 0;
     for await (const data of parseSse(res.body)) {
       let chunk: GeminiChunk;
       try {
@@ -69,7 +110,10 @@ export class GeminiProvider implements LLMProvider {
       if (chunk.promptFeedback?.blockReason) throw new LLMError(`Gemini blocked the prompt: ${chunk.promptFeedback.blockReason}`);
       const cand = chunk.candidates?.[0];
       for (const part of cand?.content?.parts ?? []) {
-        if (part.text && !part.thought) yield { type: "text", text: part.text };
+        if (part.functionCall?.name) {
+          callIndex += 1;
+          yield { type: "tool_call", call: { id: part.functionCall.id ?? `call_${callIndex}`, name: part.functionCall.name, args: part.functionCall.args ?? {} } };
+        } else if (part.text && !part.thought) yield { type: "text", text: part.text };
       }
       if (cand?.finishReason) finishReason = cand.finishReason;
       if (chunk.usageMetadata) {

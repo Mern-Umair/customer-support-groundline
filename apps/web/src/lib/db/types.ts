@@ -18,6 +18,8 @@ export interface WorkspaceDoc {
   plan: PlanId;
   /** When true, the latest eval run is shown at /evals/<slug>. */
   evalsPublic?: boolean;
+  /** When true, the assistant may call the built-in tools (order lookup, tickets, appointments). */
+  toolsEnabled?: boolean;
   createdBy: ObjectId;
   createdAt: Date;
 }
@@ -138,9 +140,31 @@ export interface MessageDoc extends TenantOwned {
   refused?: boolean;
   retrieval?: { k: number; topScore: number | null; considered: number };
   usage?: { provider: string; model: string; inputTokens: number; outputTokens: number; costUsd: number | null; latencyMs: number; firstTokenMs: number | null };
+  /** Tools the assistant used (or proposed) while producing this message. */
+  toolCalls?: { name: string; args: Record<string, unknown>; summary: string; pending: boolean }[];
   feedback?: { vote: "up" | "down"; at: Date };
   error?: string;
   createdAt: Date;
+}
+
+// ---------------------------------------------------------------------------
+// Agent actions
+// ---------------------------------------------------------------------------
+
+export type PendingActionStatus = "pending" | "approved" | "rejected" | "failed";
+
+/** A side-effecting tool call the assistant proposed; executed only after an owner approves. */
+export interface PendingActionDoc extends TenantOwned {
+  _id: ObjectId;
+  conversationId: ObjectId;
+  tool: string;
+  args: Record<string, unknown>;
+  summary: string;
+  status: PendingActionStatus;
+  result?: { ok: boolean; summary: string; data: Record<string, unknown> };
+  requestedAt: Date;
+  decidedAt?: Date;
+  decidedBy?: ObjectId;
 }
 
 // ---------------------------------------------------------------------------

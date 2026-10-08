@@ -36,6 +36,17 @@ export const HandoffRequested = z.object({
 });
 export type HandoffRequested = z.infer<typeof HandoffRequested>;
 
+/** Sent to the workspace room when the assistant proposes a side-effecting tool call. */
+export const ActionPending = z.object({
+  workspaceId: WorkspaceId,
+  conversationId: ConversationId,
+  actionId: z.string().min(1),
+  tool: z.string(),
+  summary: z.string(),
+  requestedAt: z.string(),
+});
+export type ActionPending = z.infer<typeof ActionPending>;
+
 export const ConversationStatus = z.enum(["ai", "human", "closed"]);
 export type ConversationStatus = z.infer<typeof ConversationStatus>;
 
@@ -69,6 +80,8 @@ export const REALTIME_EVENTS = {
   message: "conversation:message",
   /** server → conversation room and workspace room */
   statusChanged: "conversation:status",
+  /** server → workspace room: a tool call awaits approval */
+  actionPending: "action:pending",
   /** dashboard → server: subscribe to a conversation room (same workspace only) */
   join: "conversation:join",
   leave: "conversation:leave",
