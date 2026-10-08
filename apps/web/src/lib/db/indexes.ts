@@ -21,6 +21,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
     conversations(db).createIndex({ workspaceId: 1, status: 1 }),
     messages(db).createIndex({ conversationId: 1, createdAt: 1 }),
     messages(db).createIndex({ workspaceId: 1, createdAt: -1 }),
+    db.collection("ratelimits").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ]);
 }
 

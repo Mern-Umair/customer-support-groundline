@@ -1,6 +1,6 @@
 import { getCurrentContext } from "@/lib/auth/dal";
 import { getDb } from "@/lib/db";
-import { chunks, sources } from "@/lib/db/collections";
+import { chunks, conversations, sources } from "@/lib/db/collections";
 import { scoped } from "@/lib/tenant";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Stat } from "@/components/ui/card";
@@ -13,17 +13,26 @@ const steps = [
     status: "next",
   },
   { title: "Test answers in the playground", body: "Ask questions and check the citations before anything goes live.", href: "/dashboard/playground", status: "next" },
-  { title: "Install the widget", body: "One script tag on your site. Visitors get grounded answers with a human fallback.", status: "soon" },
+  { title: "Install the widget", body: "One script tag on your site. Visitors get grounded answers with a human fallback.", href: "/dashboard/settings", status: "next" },
 ];
 
 export default async function DashboardOverview() {
   const { workspace } = await getCurrentContext();
   const db = await getDb();
-  const [sourceCount, chunkCount] = await Promise.all([
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+  const [sourceCount, chunkCount, conversationCount, totals] = await Promise.all([
     sources(db).countDocuments(scoped(workspace._id)),
     chunks(db).countDocuments(scoped(workspace._id)),
+    conversations(db).countDocuments(scoped(workspace._id, { lastMessageAt: { $gte: since } })),
+    conversations(db)
+      .aggregate<{ answers: number; refusals: number; human: number }>([
+        { $match: scoped(workspace._id, { lastMessageAt: { $gte: since } }) },
+        { $group: { _id: null, answers: { $sum: "$totals.answers" }, refusals: { $sum: "$totals.refusals" }, human: { $sum: { $cond: [{ $eq: ["$status", "human"] }, 1, 0] } } } },
+      ])
+      .next(),
   ]);
   const firstStepDone = sourceCount > 0;
+  const answered = totals && totals.answers > 0 ? Math.round(((totals.answers - totals.refusals) / totals.answers) * 100) : null;
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -34,9 +43,9 @@ export default async function DashboardOverview() {
 
       <section className="mt-8 grid gap-4 sm:grid-cols-4">
         <Stat label="Knowledge sources" value={String(sourceCount)} hint={chunkCount ? `${chunkCount} chunks indexed` : undefined} />
-        <Stat label="Conversations" value="0" hint="last 30 days" />
-        <Stat label="Resolved by AI" value="–" hint="no conversations yet" />
-        <Stat label="Handed to a human" value="–" hint="no conversations yet" />
+        <Stat label="Conversations" value={String(conversationCount)} hint="last 30 days" />
+        <Stat label="Answered by AI" value={answered === null ? "–" : `${answered}%`} hint={totals ? `${totals.refusals} of ${totals.answers} answers were refusals` : "no answers yet"} />
+        <Stat label="Handed to a human" value={totals ? String(totals.human) : "–"} hint="handoff arrives in week 3" />
       </section>
 
       <section className="mt-10">

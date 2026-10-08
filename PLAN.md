@@ -80,6 +80,7 @@ groundline/
 Decisions:
 - **Auth** (changed 7 Oct): stateless session cookie signed with `jose` + a Data Access Layer (`verifySession`, `getCurrentContext`), exactly the pattern in the Next.js 16 authentication guide. Avoids the Auth.js beta dependency; OAuth can be added later.
 - **DB access** (changed 7 Oct): native MongoDB driver + zod + typed collection helpers, no Mongoose. Tenant isolation via `scoped(workspaceId, filter)` in `src/lib/tenant.ts`, which forces `workspaceId` into every query on tenant-owned data and throws on a cross-tenant filter. Unit-tested.
+- **Widget** (changed 9 Oct): no `packages/widget` build. The loader is a hand-written, dependency-free `apps/web/public/widget.js` (launcher button + iframe + origin-checked postMessage); all UI lives in the iframe page `/embed/[key]` inside the Next app, so it ships with the app and customers never re-paste the snippet. Public API `/api/widget/chat` is gated by MongoDB-backed rate limits (per visitor, per workspace) and the plan's monthly quota.
 - **Tests use a separate database** (`groundline_test`, via `MONGODB_URI_TEST`) for Vitest integration tests and the Playwright dev server; the main database is never touched by tests.
 - **Streaming**: SSE from a Next.js route handler (works on Vercel); WebSockets only for handoff and live view.
 - **Tests**: Vitest (unit, with a test Atlas cluster for retrieval tests), Playwright (e2e against the local dev server with a seeded tenant). CI secrets: `MONGODB_URI_TEST`, `GEMINI_API_KEY`, `GROQ_API_KEY`.
