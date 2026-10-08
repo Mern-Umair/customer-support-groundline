@@ -208,7 +208,7 @@ function AssistantBubble({ turn, onVote, showDiagnostics }: { turn: Turn; onVote
   return (
     <div className="flex flex-col items-start gap-1.5">
       {isAgent ? <span className="px-1 text-[10px] font-medium text-fg-subtle">Support team</span> : null}
-      <div className={`max-w-[85%] rounded-2xl rounded-bl-sm px-3.5 py-2 text-sm leading-relaxed ${turn.refused ? "bg-warning-soft text-warning" : isAgent ? "border border-accent/30 bg-accent-soft/40 text-fg" : "bg-surface-2 text-fg"}`}>
+      <div className={`max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-sm px-3.5 py-2 text-sm leading-relaxed ${turn.refused ? "bg-warning-soft text-warning" : isAgent ? "border border-accent/30 bg-accent-soft/40 text-fg" : "bg-surface-2 text-fg"}`}>
         {turn.text || (turn.streaming ? <span className="text-fg-subtle">Thinking…</span> : null)}
         {turn.streaming && turn.text ? <span className="ml-0.5 inline-block h-3.5 w-1 animate-pulse bg-fg-subtle align-middle" /> : null}
       </div>

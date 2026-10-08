@@ -22,10 +22,10 @@ const steps = [
 ];
 
 const principles = [
-  { title: "Grounded or silent", body: "If the retrieved context doesn't support an answer, the assistant says so and hands off instead of guessing." },
-  { title: "Measured in public", body: "A fixed test set per workspace, scored on every change. Accuracy, citation precision and refusal rate are published, not promised." },
-  { title: "Multi-tenant by construction", body: "Every query is scoped to a workspace at the data layer. Isolation is tested, not assumed." },
-  { title: "Costs you can see", body: "Tokens, model cost and latency are logged per conversation and shown in the dashboard." },
+  { title: "Grounded or silent", body: "If the retrieved context doesn't support an answer, the assistant says so and hands off instead of guessing. Citations are validated after generation, not trusted from the prompt." },
+  { title: "Measured in public", body: "A fixed test set per workspace, scored on every run: accuracy, citation hit rate, correct refusals, over-refusal. Published at /evals when the owner opts in." },
+  { title: "Multi-tenant by construction", body: "Every query is scoped to a workspace at the data layer and inside the vector index. Isolation is tested, not assumed." },
+  { title: "Humans stay in the loop", body: "Low confidence pages a person. Tools that change something (tickets, bookings) wait for a teammate's approval. Costs and latency are visible per message." },
 ];
 
 export default function Home() {
@@ -38,7 +38,7 @@ export default function Home() {
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-fg-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-              Open build · week 1 of 8
+              Open source · built on free tiers · every number measured
             </p>
             <h1 className="mt-5 max-w-xl text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
               AI customer support that only says what your docs say.
@@ -55,7 +55,13 @@ export default function Home() {
                 See the eval numbers
               </ButtonLink>
             </div>
-            <p className="mt-4 text-xs text-fg-subtle">Free plan, no credit card. Source on GitHub.</p>
+            <p className="mt-4 text-xs text-fg-subtle">
+              Free plan, no credit card.{" "}
+              <a href="https://github.com/Mern-Umair/customer-support-groundline" target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline">
+                Source and architecture notes on GitHub
+              </a>
+              .
+            </p>
           </div>
           <div className="flex justify-center lg:justify-end">
             <WidgetDemo />
@@ -71,6 +77,15 @@ export default function Home() {
                 <p className="mt-2 text-sm leading-relaxed text-fg-muted">{s.body}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-6 pt-16">
+          <h2 className="text-2xl font-semibold tracking-tight">The dashboard</h2>
+          <p className="mt-2 max-w-xl text-fg-muted">Conversations, handoffs, cost and latency, and the questions your documents could not answer. Real data from the demo workspace, not a mock-up.</p>
+          <div className="mt-6 overflow-hidden rounded-xl border border-border bg-surface shadow-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/screenshots/overview.png" alt="Groundline dashboard overview: stat tiles, conversations per day chart and unanswered questions" className="block w-full" loading="lazy" />
           </div>
         </section>
 

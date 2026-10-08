@@ -41,7 +41,7 @@ export class FakeProvider implements LLMProvider {
       }
     }
 
-    const pieces = answer.match(/.{1,12}/g) ?? [answer];
+    const pieces = answer.match(/[\s\S]{1,12}/g) ?? [answer];
     for (const p of pieces) {
       if (opts.signal?.aborted) return;
       yield { type: "text", text: p };
