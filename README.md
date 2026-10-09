@@ -18,7 +18,7 @@
 | **Insights** | 30-day conversations, answered-by-AI rate, handoffs, latency, cost, feedback score, daily chart, and the list of unanswered questions (what to add to the docs) |
 | **Evals** | Per-workspace test set (answerable with reference + expected source, or unanswerable); deterministic refusal and citation checks; LLM judge with a pinned rubric; accuracy, citation hit rate, correct refusals, over-refusal; runs stored for regression; public results page; 40-question demo golden set; CI gate |
 | **Teams & plans** | Invite links, owner/agent roles enforced server-side, multi-workspace switching; Free and Pro limits; Stripe Checkout + portal in test mode with a signature-verified, idempotent webhook |
-| **Engineering** | TypeScript strict; 113 unit/integration tests (Vitest, real Atlas for retrieval and isolation) and 28 browser tests (Playwright, production build, two-browser handoff and approval flows); GitHub Actions on every push; offline stand-ins for the embedder, the model and the judge so everything runs without API keys |
+| **Engineering** | TypeScript strict; 123 unit/integration tests (Vitest, real Atlas for retrieval and isolation) and 28 browser tests (Playwright, production build, two-browser handoff and approval flows); GitHub Actions on every push; offline stand-ins for the embedder, the model and the judge so everything runs without API keys |
 
 ## Not built (deliberately)
 
@@ -31,6 +31,8 @@ Next.js 16 + TypeScript (dashboard, API, SSE) · Node + Socket.io (realtime) · 
 ## Evals
 
 Each workspace keeps a test set (question, reference answer, expected source, or "unanswerable"). A run asks every question to the live assistant, checks refusals and citations deterministically, and has a judge model grade correctness with a pinned rubric (`correctness-v1`, reasoning before verdict, three-step scale). Headline numbers: answer accuracy, cited-the-right-source rate, correct refusals, over-refusal, latency, cost. Runs are stored so regressions are visible; owners can publish the latest run at `/evals/<workspace>`. The repo ships a 40-question golden set over fictional "Ali Shoes" documents (`apps/web/src/lib/evals/demo`), used by "Load demo set" in the dashboard and by the CI gate (`EVALS_REAL=1` + `GEMINI_API_KEY`, thresholds in `evals/baseline.json`). Numbers from the offline stand-ins are labelled as not meaningful and never published.
+
+Latest recorded real-provider run (`evals/results/latest.json`, 9 Oct 2026, gemini-3.5-flash-lite + gemini-embedding-001, judged by gemini-3.5-flash-lite): **accuracy 87%** (26 correct, 4 partial, 0 incorrect of 30), **cited the right document 100%**, **correct refusals 100%** (10 of 10), over-refusal 0%, average latency 3.0 s, cost $0.02 for the whole run. Caveat stated with the numbers: same-family judge (a Groq judge is used automatically when a key is configured) and a 40-question set.
 
 ## How it works
 

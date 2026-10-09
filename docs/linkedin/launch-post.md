@@ -15,16 +15,16 @@ What's in it:
 → Agent tools with a human approval step (order lookup runs now; tickets and bookings wait for a teammate)
 → Evals: a 40-question golden set, deterministic refusal and citation checks, an LLM judge with a pinned rubric, results published at a public URL
 → Teams, roles, Stripe test-mode billing, rate limits
-→ 113 unit/integration tests, 28 browser tests, CI on every push
+→ 123 unit/integration tests, 28 browser tests, CI on every push
 
-The numbers (demo workspace, [[model]] judged by [[judge model]], run [[date]]):
-• Answer accuracy: [[xx]]% on 30 answerable questions (strict: "partial" doesn't count)
-• Cited the right document: [[xx]]%
-• Correct refusals on 10 unanswerable questions: [[xx]]%
-• Over-refusal: [[xx]]%
-• Median latency: [[xxx]] ms · cost per answer: $[[0.000x]]
+The numbers (demo workspace, gemini-3.5-flash-lite with gemini-embedding-001, judged by gemini-3.5-flash-lite on a pinned rubric, run 9 Oct 2026, results committed in the repo):
+• Answer accuracy: 87% on 30 answerable questions (strict: 26 fully correct, 4 partial, 0 wrong)
+• Cited the right document: 100%
+• Correct refusals on 10 unanswerable questions: 100%
+• Over-refusal: 0%
+• Average latency: 3.0 s end to end · model cost per answer: about $0.0005 at list prices (the free tier pays $0)
 
-What I'd do differently: [[one honest sentence from the eval failures]].
+What the numbers don't say: the judge is the same model family as the system under test (a Groq judge is used automatically when a key exists), and 40 questions over 4 documents is a small set. Both are stated on the public evals page.
 
 Live demo: [[url]] (try the widget on the demo shop)
 Public evals: [[url]]/evals

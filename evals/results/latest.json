@@ -1,0 +1,26 @@
+{
+  "finishedAt": "2026-10-09T11:05:39.673Z",
+  "config": {
+    "chatProvider": "gemini",
+    "chatModel": "gemini-3.5-flash-lite",
+    "embedder": "gemini-embedding-001@768",
+    "judgeProvider": "gemini",
+    "judgeModel": "gemini-3.5-flash-lite",
+    "rubricVersion": "correctness-v1"
+  },
+  "metrics": {
+    "cases": 40,
+    "answerable": 30,
+    "unanswerable": 10,
+    "correct": 26,
+    "partial": 4,
+    "incorrect": 0,
+    "accuracy": 0.8666666666666667,
+    "accuracyLenient": 1,
+    "citationHitRate": 1,
+    "overRefusal": 0,
+    "underRefusal": 0,
+    "avgLatencyMs": 2992,
+    "costUsd": 0.0206997
+  }
+}

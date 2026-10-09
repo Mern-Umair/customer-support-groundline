@@ -1,8 +1,9 @@
 {
-  "_comment": "Regression gate for the Ali Shoes demo set with real providers (EVALS_REAL=1). Numbers are set from the first real run and must only be changed with a committed results file explaining why.",
-  "accuracy": 0.0,
-  "citationHitRate": 0.0,
-  "correctRefusals": 0.0,
+  "_comment": "Regression gate for the Ali Shoes demo set with real providers (EVALS_REAL=1). Set from the run recorded in evals/results/latest.json on 2026-10-09 (gemini-3.5-flash-lite chat, gemini-embedding-001@768, judged by gemini-3.5-flash-lite, rubric correctness-v1). Change only together with a new committed results file.",
+  "accuracy": 0.8667,
+  "citationHitRate": 1.0,
+  "correctRefusals": 1.0,
   "tolerance": 0.1,
-  "status": "unset: no real-provider run has been recorded yet"
+  "recordedAt": "2026-10-09",
+  "status": "set from a real-provider run"
 }
