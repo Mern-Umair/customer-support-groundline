@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "./retry";
 import { parseSse } from "./sse";
 import { LLMError, type ChatMessage, type LLMProvider, type StreamEvent, type StreamOptions, type Usage } from "./types";
 
@@ -85,16 +86,13 @@ export class GeminiProvider implements LLMProvider {
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:streamGenerateContent?alt=sse`;
-    const res = await this.fetchImpl(url, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
-      body: JSON.stringify(body),
-      signal: opts.signal,
-    });
-    if (!res.ok || !res.body) {
-      const detail = await res.text().catch(() => "");
-      throw new LLMError(`Gemini request failed (${res.status}): ${detail.slice(0, 300)}`, res.status, res.status === 429 || res.status >= 500);
-    }
+    const res = await fetchWithRetry(
+      this.fetchImpl,
+      url,
+      { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey }, body: JSON.stringify(body), signal: opts.signal },
+      "Gemini",
+    );
+    if (!res.body) throw new LLMError("Gemini returned an empty body");
 
     let usage: Usage | null = null;
     let finishReason: string | null = null;

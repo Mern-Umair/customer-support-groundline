@@ -39,8 +39,8 @@ describe("GeminiProvider", () => {
     expect(sent?.body.contents).toEqual([{ role: "user", parts: [{ text: "q" }] }]);
   });
 
-  it("throws a retryable LLMError on 429", async () => {
-    const fetchImpl = vi.fn(async () => new Response("quota", { status: 429 })) as unknown as typeof fetch;
+  it("throws a retryable LLMError after exhausting 429 retries", async () => {
+    const fetchImpl = vi.fn(async () => new Response("quota", { status: 429, headers: { "retry-after": "0" } })) as unknown as typeof fetch;
     const p = new GeminiProvider({ apiKey: "k", fetchImpl });
     await expect(drain(p.stream([{ role: "user", content: "q" }]))).rejects.toMatchObject({ name: "LLMError", status: 429, retryable: true });
   });
@@ -86,5 +86,22 @@ describe("estimateCostUsd", () => {
     expect(estimateCostUsd("llama-3.1-8b-instant", { inputTokens: 1000, outputTokens: 1000 })).toBeCloseTo(0.00013);
     expect(estimateCostUsd("mystery-model", { inputTokens: 1, outputTokens: 1 })).toBeNull();
     expect(estimateCostUsd("gemini-3.5-flash-lite", null)).toBeNull();
+  });
+});
+
+describe("fetchWithRetry", () => {
+  it("retries 429 with backoff then succeeds, and gives up on 400", async () => {
+    const { fetchWithRetry } = await import("./retry");
+    let n = 0;
+    const flaky = vi.fn(async () => {
+      n += 1;
+      return n < 3 ? new Response("slow down", { status: 429, headers: { "retry-after": "0" } }) : new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    const res = await fetchWithRetry(flaky, "https://x", {}, "Test");
+    expect(res.status).toBe(200);
+    expect(n).toBe(3);
+
+    const bad = vi.fn(async () => new Response("nope", { status: 400 })) as unknown as typeof fetch;
+    await expect(fetchWithRetry(bad, "https://x", {}, "Test")).rejects.toMatchObject({ status: 400, retryable: false });
   });
 });

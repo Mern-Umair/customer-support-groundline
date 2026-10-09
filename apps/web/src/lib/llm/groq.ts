@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "./retry";
 import { parseSse } from "./sse";
 import { LLMError, type ChatMessage, type LLMProvider, type StreamEvent, type StreamOptions, type Usage } from "./types";
 
@@ -58,16 +59,13 @@ export class GroqProvider implements LLMProvider {
       body.tools = opts.tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
       body.tool_choice = "auto";
     }
-    const res = await this.fetchImpl("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}` },
-      body: JSON.stringify(body),
-      signal: opts.signal,
-    });
-    if (!res.ok || !res.body) {
-      const detail = await res.text().catch(() => "");
-      throw new LLMError(`Groq request failed (${res.status}): ${detail.slice(0, 300)}`, res.status, res.status === 429 || res.status >= 500);
-    }
+    const res = await fetchWithRetry(
+      this.fetchImpl,
+      "https://api.groq.com/openai/v1/chat/completions",
+      { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${this.apiKey}` }, body: JSON.stringify(body), signal: opts.signal },
+      "Groq",
+    );
+    if (!res.body) throw new LLMError("Groq returned an empty body");
 
     let usage: Usage | null = null;
     let finishReason: string | null = null;
