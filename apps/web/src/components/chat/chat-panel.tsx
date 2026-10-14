@@ -214,7 +214,7 @@ function AssistantBubble({ turn, onVote, showDiagnostics }: { turn: Turn; onVote
       </div>
       {turn.error ? <p className="text-xs text-danger">{turn.error}</p> : null}
       {turn.citations?.length ? (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex max-w-[85%] flex-wrap gap-1.5">
           {turn.citations.map((c) =>
             c.url ? (
               <a key={c.n} href={c.url} target="_blank" rel="noreferrer" className="max-w-full">
