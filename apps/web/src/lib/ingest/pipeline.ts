@@ -114,6 +114,7 @@ export interface ProcessResult {
 }
 
 let vectorIndexEnsured = false;
+const STALE_CLAIM_MS = 5 * 60_000;
 
 /**
  * Advances a source by as many pages as fit in the time budget. Designed to be called
@@ -153,13 +154,19 @@ export async function processSource(ctx: PipelineContext, sourceId: ObjectId, op
 
   let processedThisRun = 0;
   while (now() < deadline) {
-    const page = await pages(ctx.db).findOne(scoped(ctx.workspaceId, { sourceId, status: "pending" }), { sort: { depth: 1, createdAt: 1 } });
+    // Atomic claim so two concurrent calls (two tabs, a retry) never process the same page twice.
+    const staleBefore = new Date(Date.now() - STALE_CLAIM_MS);
+    const page = await pages(ctx.db).findOneAndUpdate(
+      scoped(ctx.workspaceId, { sourceId, $or: [{ status: "pending" }, { status: "processing", claimedAt: { $lt: staleBefore } }] }),
+      { $set: { status: "processing", claimedAt: new Date() } },
+      { sort: { depth: 1, createdAt: 1 }, returnDocument: "after" },
+    );
     if (!page) break;
     await processPage(ctx, source, page, robots, opts);
     processedThisRun += 1;
   }
 
-  const pending = await pages(ctx.db).countDocuments(scoped(ctx.workspaceId, { sourceId, status: "pending" }));
+  const pending = await pages(ctx.db).countDocuments(scoped(ctx.workspaceId, { sourceId, status: { $in: ["pending", "processing"] } }));
   const updated = (await sources(ctx.db).findOne(filter))!;
   if (pending === 0) {
     const failedAll = updated.counts.pagesProcessed === 0 && updated.counts.pagesFailed > 0;
@@ -236,6 +243,9 @@ async function processPage(ctx: PipelineContext, source: SourceDoc, page: PageDo
       pageNumber: p.pageNumber,
       createdAt: new Date(),
     }));
+    // The page may have been wiped by a re-sync while we were embedding: then our work is stale.
+    const stillThere = await pages(ctx.db).findOne(pageFilter, { projection: { _id: 1 } });
+    if (!stillThere) return;
     await chunks(ctx.db).insertMany(docs);
 
     const charCount = segments.reduce((s, seg) => s + seg.text.length, 0);

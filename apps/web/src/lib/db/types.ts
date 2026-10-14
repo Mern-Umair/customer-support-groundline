@@ -90,7 +90,7 @@ export interface SourceDoc extends TenantOwned {
   completedAt?: Date;
 }
 
-export type PageStatus = "pending" | "processed" | "failed" | "skipped";
+export type PageStatus = "pending" | "processing" | "processed" | "failed" | "skipped";
 
 /** One unit of ingestion: a web page or an uploaded document. */
 export interface PageDoc extends TenantOwned {
@@ -99,6 +99,8 @@ export interface PageDoc extends TenantOwned {
   url?: string;
   title?: string;
   status: PageStatus;
+  /** Set when a worker claims the page; stale claims (crashed worker) are re-claimed after 5 minutes. */
+  claimedAt?: Date;
   error?: string;
   /** For uploads, the raw text is stored here until processed, then dropped. */
   pendingText?: string;

@@ -118,3 +118,49 @@ describe.skipIf(!hasDb)("ingestion pipeline (integration)", () => {
     expect(none).toEqual([]);
   }, 120_000);
 });
+
+describe.skipIf(!hasDb)("ingestion concurrency (integration)", () => {
+  const tenant = new ObjectId();
+  const userId = new ObjectId();
+
+  afterAll(async () => {
+    const { getDb } = await import("../db");
+    const { sources, pages, chunks } = await import("../db/collections");
+    const db = await getDb();
+    await Promise.all([sources(db).deleteMany({ workspaceId: tenant }), pages(db).deleteMany({ workspaceId: tenant }), chunks(db).deleteMany({ workspaceId: tenant })]);
+  });
+
+  it("two processSource calls running at once never index the same page twice", async () => {
+    const { getDb } = await import("../db");
+    const { FakeEmbedder } = await import("./embeddings");
+    const { createWebsiteSource, processSource } = await import("./pipeline");
+    const { pages, chunks } = await import("../db/collections");
+    const db = await getDb();
+    const ctx = { db, workspaceId: tenant, userId, plan: "free" as const, embedder: new FakeEmbedder() };
+    const source = await createWebsiteSource(ctx, "shop.test");
+
+    // Simulate the "two tabs" case: the same source driven by two loops at the same time.
+    const run = async () => {
+      let r = await processSource(ctx, source._id, { fetchImpl: fakeSite(), budgetMs: 20_000 });
+      while (r.status === "processing") r = await processSource(ctx, source._id, { fetchImpl: fakeSite(), budgetMs: 20_000 });
+      return r;
+    };
+    const [a, b] = await Promise.all([run(), run()]);
+    expect([a.status, b.status]).toEqual(["ready", "ready"]);
+
+    const pageDocs = await pages(db).find({ sourceId: source._id }).toArray();
+    const urls = pageDocs.map((p) => p.url).sort();
+    expect(new Set(urls).size).toBe(urls.length); // no duplicate pages
+    expect(pageDocs.filter((p) => p.status === "processed")).toHaveLength(3);
+
+    const chunkDocs = await chunks(db).find({ sourceId: source._id }).toArray();
+    const perPage = new Map<string, number>();
+    for (const c of chunkDocs) perPage.set(c.pageId.toHexString(), (perPage.get(c.pageId.toHexString()) ?? 0) + 1);
+    for (const p of pageDocs.filter((x) => x.status === "processed")) expect(perPage.get(p._id.toHexString())).toBe(p.chunkCount);
+
+    const final = (await import("../db/collections")).sources;
+    const s = (await final(db).findOne({ _id: source._id }))!;
+    expect(s.counts.pagesProcessed).toBe(3);
+    expect(s.counts.chunks).toBe(chunkDocs.length);
+  }, 120_000);
+});
