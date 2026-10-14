@@ -40,8 +40,9 @@ export const toRunDto = (r: EvalRunDoc): EvalRunDto => ({
   id: r._id.toHexString(),
   status: r.status,
   config: r.config,
-  total: r.pending.length + r.results.length,
-  done: r.results.length,
+  // metrics.cases always equals the number of stored results, even when results are projected out of a list query.
+  total: r.pending.length + r.metrics.cases,
+  done: r.metrics.cases,
   metrics: r.metrics,
   startedAt: r.startedAt.toISOString(),
   finishedAt: r.finishedAt?.toISOString(),

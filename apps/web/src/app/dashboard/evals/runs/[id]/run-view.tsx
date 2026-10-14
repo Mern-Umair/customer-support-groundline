@@ -50,6 +50,12 @@ export function RunView({ initialRun, initialResults }: Props) {
 
   const pctDone = run.total ? Math.round((run.done / run.total) * 100) : 0;
 
+  async function cancel() {
+    if (!confirm("Stop this run? Finished cases are kept; the run is marked as failed.")) return;
+    const res = await fetch(`/api/evals/runs/${run.id}/cancel`, { method: "POST" });
+    if (res.ok) setRun((r) => ({ ...r, status: "failed", error: "Cancelled" }));
+  }
+
   return (
     <div className="mt-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -66,7 +72,12 @@ export function RunView({ initialRun, initialResults }: Props) {
             <span className="font-medium">
               Evaluating… {run.done} of {run.total}
             </span>
-            <span className="tabular-nums text-fg-muted">{pctDone}%</span>
+            <span className="flex items-center gap-3">
+              <span className="tabular-nums text-fg-muted">{pctDone}%</span>
+              <button type="button" onClick={cancel} className="text-xs text-fg-subtle underline-offset-2 hover:underline">
+                Stop run
+              </button>
+            </span>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
             <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${pctDone}%` }} />

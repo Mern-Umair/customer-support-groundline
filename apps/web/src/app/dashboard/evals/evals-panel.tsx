@@ -234,6 +234,7 @@ export function EvalsPanel({ initialCases, initialRuns, evalsPublic, slug, isOwn
                   </p>
                   <p className="truncate text-xs text-fg-subtle">
                     {r.config.chatModel} judged by {r.config.judgeModel} · {r.done}/{r.total} cases · {new Date(r.startedAt).toLocaleString("en-GB")}
+                    {r.status === "running" ? " · open to resume or stop" : ""}
                   </p>
                 </div>
                 <span className="text-xs text-fg-subtle">{r.metrics.avgLatencyMs === null ? "" : `${r.metrics.avgLatencyMs} ms`}</span>
