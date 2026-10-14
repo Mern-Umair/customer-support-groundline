@@ -11,6 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { BillingSettings } from "./billing-settings";
 import { TeamSettings } from "./team-settings";
 import { ToolsSettings } from "./tools-settings";
+import { WorkspaceName } from "./workspace-name";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ billing?: string }> }) {
   const { user, workspace, role } = await getCurrentContext();
@@ -29,7 +30,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const isOwner = role === "owner";
 
   const rows = [
-    ["Workspace", workspace.name],
     ["Slug", workspace.slug],
     ["Your role", role],
     ["Account email", user.email],
@@ -82,6 +82,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <section className="mt-10">
         <h2 className="text-base font-medium">Workspace</h2>
         <Card className="mt-3 divide-y divide-border">
+          <div className="grid grid-cols-3 gap-4 px-4 py-3 text-sm">
+            <dt className="text-fg-muted">Name</dt>
+            <dd className="col-span-2">
+              <WorkspaceName name={workspace.name} isOwner={isOwner} />
+              <p className="mt-1 text-xs text-fg-subtle">Shown to visitors in the chat header as “<em>Name</em> support”.</p>
+            </dd>
+          </div>
           {rows.map(([k, v]) => (
             <div key={k} className="grid grid-cols-3 gap-4 px-4 py-3 text-sm">
               <dt className="text-fg-muted">{k}</dt>

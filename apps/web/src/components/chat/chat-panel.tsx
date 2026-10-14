@@ -152,7 +152,7 @@ export function ChatPanel({ send, feedback, pollUrl, showDiagnostics = false, pl
 
   return (
     <div className={`flex h-full flex-col ${className}`}>
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden p-4 [overflow-wrap:anywhere]">
         {turns.length === 0 && emptyHint ? <p className="py-12 text-center text-sm text-fg-muted">{emptyHint}</p> : null}
         {turns.map((t) =>
           t.role === "visitor" ? (
