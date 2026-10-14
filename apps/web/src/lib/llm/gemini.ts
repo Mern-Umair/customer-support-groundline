@@ -11,6 +11,7 @@ export interface GeminiProviderOptions {
 interface GeminiPart {
   text?: string;
   thought?: boolean;
+  thoughtSignature?: string;
   functionCall?: { id?: string; name?: string; args?: Record<string, unknown> };
   functionResponse?: { id?: string; name: string; response: Record<string, unknown> };
 }
@@ -41,7 +42,7 @@ export function toGeminiContents(messages: ChatMessage[]): GeminiContent[] {
     else if (m.role === "assistant") {
       const parts: GeminiPart[] = [];
       if (m.content) parts.push({ text: m.content });
-      for (const c of m.toolCalls ?? []) parts.push({ functionCall: { id: c.id, name: c.name, args: c.args } });
+      for (const c of m.toolCalls ?? []) parts.push({ functionCall: { id: c.id, name: c.name, args: c.args }, ...(c.signature ? { thoughtSignature: c.signature } : {}) });
       if (parts.length) push("model", parts);
     } else if (m.role === "tool") {
       let response: Record<string, unknown>;
@@ -97,6 +98,9 @@ export class GeminiProvider implements LLMProvider {
     let usage: Usage | null = null;
     let finishReason: string | null = null;
     let callIndex = 0;
+    // Gemini 3 attaches a thought signature to the first part of a turn (or to the functionCall part);
+    // it must be echoed back with the call, so keep the latest one seen.
+    let pendingSignature: string | undefined;
     for await (const data of parseSse(res.body)) {
       let chunk: GeminiChunk;
       try {
@@ -108,9 +112,10 @@ export class GeminiProvider implements LLMProvider {
       if (chunk.promptFeedback?.blockReason) throw new LLMError(`Gemini blocked the prompt: ${chunk.promptFeedback.blockReason}`);
       const cand = chunk.candidates?.[0];
       for (const part of cand?.content?.parts ?? []) {
+        if (part.thoughtSignature) pendingSignature = part.thoughtSignature;
         if (part.functionCall?.name) {
           callIndex += 1;
-          yield { type: "tool_call", call: { id: part.functionCall.id ?? `call_${callIndex}`, name: part.functionCall.name, args: part.functionCall.args ?? {} } };
+          yield { type: "tool_call", call: { id: part.functionCall.id ?? `call_${callIndex}`, name: part.functionCall.name, args: part.functionCall.args ?? {}, ...(pendingSignature ? { signature: pendingSignature } : {}) } };
         } else if (part.text && !part.thought) yield { type: "text", text: part.text };
       }
       if (cand?.finishReason) finishReason = cand.finishReason;

@@ -34,6 +34,16 @@ describe("Gemini tool calling", () => {
     expect(events[0]).toEqual({ type: "tool_call", call: { id: "call_1", name: "lookupOrder", args: { orderNumber: "48213" } } });
   });
 
+  it("captures a thought signature and echoes it back with the function call", async () => {
+    const fetchImpl = vi.fn(async () =>
+      sse([JSON.stringify({ candidates: [{ content: { parts: [{ thoughtSignature: "sig-abc", functionCall: { name: "lookupOrder", args: { orderNumber: "7" } } }] }, finishReason: "STOP" }] })]),
+    ) as unknown as typeof fetch;
+    const events = await drain(new GeminiProvider({ apiKey: "k", fetchImpl }).stream([{ role: "user", content: "q" }], { tools: [lookupOrder] }));
+    expect(events[0]).toEqual({ type: "tool_call", call: { id: "call_1", name: "lookupOrder", args: { orderNumber: "7" }, signature: "sig-abc" } });
+    const contents = toGeminiContents([{ role: "assistant", content: "", toolCalls: [{ id: "call_1", name: "lookupOrder", args: { orderNumber: "7" }, signature: "sig-abc" }] }]);
+    expect(contents[0].parts[0]).toEqual({ functionCall: { id: "call_1", name: "lookupOrder", args: { orderNumber: "7" } }, thoughtSignature: "sig-abc" });
+  });
+
   it("maps assistant tool calls and tool results to model/user parts and merges consecutive roles", () => {
     const contents = toGeminiContents([
       { role: "system", content: "sys" },

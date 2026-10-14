@@ -19,6 +19,8 @@ export interface ToolCall {
   id: string;
   name: string;
   args: Record<string, unknown>;
+  /** Provider-specific opaque token that must be echoed back with the call (Gemini 3 thought signatures). */
+  signature?: string;
 }
 
 export interface ToolRunContext {
