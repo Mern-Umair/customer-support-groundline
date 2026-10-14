@@ -197,6 +197,7 @@ export function EvalsPanel({ initialCases, initialRuns, evalsPublic, slug, isOwn
                   <p className="font-medium">{c.question}</p>
                   {c.expectedAnswer ? <p className="truncate text-xs text-fg-muted">→ {c.expectedAnswer}</p> : null}
                   {c.expectedSource ? <p className="text-[11px] text-fg-subtle">source: {c.expectedSource}</p> : null}
+                  {c.tags?.includes("auto") ? <p className="text-[11px] text-fg-subtle">added automatically from a real chat the assistant could not answer</p> : null}
                 </div>
                 <button type="button" onClick={() => removeCase(c.id)} aria-label={`Delete case: ${c.question}`} className="text-fg-subtle hover:text-danger">
                   ✕

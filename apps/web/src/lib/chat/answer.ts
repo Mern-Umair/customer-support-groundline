@@ -9,6 +9,7 @@ import { scoped } from "../tenant";
 import { generateGrounded, TOP_K } from "./generate";
 import { broadcastMessage, requestHandoff, wantsHuman } from "./handoff";
 import { runOrDefer } from "../tools/actions";
+import { insertCases } from "../evals/demo/load";
 import { ALL_TOOLS } from "../tools/registry";
 
 export { MIN_RETRIEVAL_SCORE } from "./generate";
@@ -225,6 +226,10 @@ export async function* answerQuestion(ctx: AnswerContext, input: AnswerInput): A
   });
 
   if (out.refused && handoffEnabled) {
+    // Every real question the assistant could not answer becomes an eval case automatically
+    // (kind "unanswerable", tag "auto"). If the documents later cover it, that case fails and
+    // tells the owner to flip it to "answerable" with a reference answer.
+    void insertCases(ctx.db, ctx.workspaceId, [{ kind: "unanswerable", question, tags: ["auto"] }]).catch((err) => console.warn("[evals] auto-add failed:", (err as Error).message));
     const rang = await requestHandoff(ctx.db, conversation, "low_confidence", question);
     if (rang) {
       const note = await storeMessage(ctx, { conversationId: conversation._id, role: "system", content: HANDOFF_NOTE });

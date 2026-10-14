@@ -91,3 +91,30 @@ describe.skipIf(!hasDb)("agent tools via answerQuestion (integration)", () => {
     expect(events.some((e) => e.type === "tool")).toBe(false);
   }, 60_000);
 });
+
+describe.skipIf(!hasDb)("auto eval cases from refusals (integration)", () => {
+  const workspaceId = new ObjectId();
+  afterAll(async () => {
+    const { getDb } = await import("../db");
+    const { conversations, messages, evalCases } = await import("../db/collections");
+    const db = await getDb();
+    await Promise.all([conversations(db).deleteMany({ workspaceId }), messages(db).deleteMany({ workspaceId }), evalCases(db).deleteMany({ workspaceId })]);
+  });
+
+  it("adds a refused widget question to the eval set once, tagged auto", async () => {
+    const { getDb } = await import("../db");
+    const { FakeEmbedder } = await import("../ingest/embeddings");
+    const { FakeProvider } = await import("../llm/fake");
+    const { answerQuestion } = await import("../chat/answer");
+    const { evalCases } = await import("../db/collections");
+    const db = await getDb();
+    const ctx = { db, workspaceId, workspaceName: "Empty Co", embedder: new FakeEmbedder(), llm: new FakeProvider(), toolsEnabled: false };
+    for (let i = 0; i < 2; i++) {
+      for await (const ev of answerQuestion(ctx, { channel: "widget", participantId: `v_auto${i}`, question: "Do you ship to Mars?" })) void ev;
+    }
+    await new Promise((r) => setTimeout(r, 500));
+    const cases = await evalCases(db).find({ workspaceId }).toArray();
+    expect(cases).toHaveLength(1);
+    expect(cases[0]).toMatchObject({ kind: "unanswerable", question: "Do you ship to Mars?", tags: ["auto"] });
+  }, 60_000);
+});

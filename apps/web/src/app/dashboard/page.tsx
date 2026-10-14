@@ -8,6 +8,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, Stat } from "@/components/ui/card";
 import { DailyBars } from "@/components/charts/daily-bars";
+import { AddToEvals } from "./add-to-evals";
 
 const steps = [
   { title: "Add your first knowledge source", body: "Paste your website URL or upload a PDF. We crawl, chunk and index it.", href: "/dashboard/sources" },
@@ -60,11 +61,14 @@ export default async function DashboardOverview() {
         ) : (
           <Card className="mt-3 divide-y divide-border">
             {insights.unanswered.map((q) => (
-              <Link key={q.messageId} href={`/dashboard/conversations/${q.conversationId}`} className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-surface-2">
+              <div key={q.messageId} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                 <Badge tone={q.channel === "widget" ? "accent" : "neutral"}>{q.channel}</Badge>
-                <span className="min-w-0 flex-1 truncate">{q.question}</span>
+                <Link href={`/dashboard/conversations/${q.conversationId}`} className="min-w-0 flex-1 truncate hover:underline">
+                  {q.question}
+                </Link>
+                <AddToEvals question={q.question} />
                 <span className="shrink-0 text-xs text-fg-subtle">{new Date(q.askedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-              </Link>
+              </div>
             ))}
           </Card>
         )}
