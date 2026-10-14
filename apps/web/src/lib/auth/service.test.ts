@@ -64,4 +64,22 @@ describe.skipIf(!hasDb)("auth service (integration)", () => {
       code: "invalid_credentials",
     });
   }, 30_000);
+
+  it("createWorkspace adds a second free workspace owned by the same user", async () => {
+    const { createWorkspace } = await import("./service");
+    const { getDb } = await import("../db");
+    const { users, workspaces, memberships } = await import("../db/collections");
+    const db = await getDb();
+    const user = await users(db).findOne({ email });
+    expect(user).not.toBeNull();
+    const id = await createWorkspace(db, user!._id, "  Second shop  ");
+    const ws = await workspaces(db).findOne({ _id: id });
+    expect(ws?.name).toBe("Second shop");
+    expect(ws?.slug).toMatch(/^second-shop-[0-9a-f]{6}$/);
+    expect(ws?.publicKey).toMatch(/^wk_[0-9a-f]{32}$/);
+    expect(ws?.plan).toBe("free");
+    const m = await memberships(db).findOne({ userId: user!._id, workspaceId: id });
+    expect(m?.role).toBe("owner");
+    expect(await memberships(db).countDocuments({ userId: user!._id, role: "owner" })).toBe(2);
+  });
 });

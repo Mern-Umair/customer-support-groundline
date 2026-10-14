@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { MongoServerError, ObjectId } from "mongodb";
+import { type Db, MongoServerError, ObjectId } from "mongodb";
 import { getDb } from "../db";
 import { memberships, users, workspaces } from "../db/collections";
 import { acceptInvite, TeamError } from "../team/invites";
@@ -77,19 +77,29 @@ export async function signUp(input: SignUpInput): Promise<AuthResult> {
     }
   }
 
-  const workspaceId = new ObjectId();
   const workspaceName = (input.workspaceName ?? "").trim() || `${input.name.trim()}'s workspace`;
+  const workspaceId = await createWorkspace(db, userId, workspaceName);
+  return { userId: userId.toHexString(), workspaceId: workspaceId.toHexString() };
+}
+
+/** Max workspaces one user may own; keeps a single account from filling the free tier. */
+export const MAX_OWNED_WORKSPACES = 10;
+
+/** Inserts a free workspace plus an owner membership for `userId`; returns the new workspace id. */
+export async function createWorkspace(db: Db, userId: ObjectId, name: string): Promise<ObjectId> {
+  const now = new Date();
+  const workspaceId = new ObjectId();
   await workspaces(db).insertOne({
     _id: workspaceId,
-    name: workspaceName,
-    slug: slugify(workspaceName),
+    name: name.trim(),
+    slug: slugify(name),
     publicKey: generatePublicKey(),
     plan: "free",
     createdBy: userId,
     createdAt: now,
   });
   await memberships(db).insertOne({ _id: new ObjectId(), userId, workspaceId, role: "owner", createdAt: now });
-  return { userId: userId.toHexString(), workspaceId: workspaceId.toHexString() };
+  return workspaceId;
 }
 
 export async function signIn(email: string, password: string, inviteToken?: string): Promise<AuthResult> {
