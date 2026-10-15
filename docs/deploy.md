@@ -30,8 +30,11 @@ Free Render services sleep after ~15 minutes idle and take 30–60 s to wake. Th
    - `REALTIME_URL`: the Render URL from step 2.
    - `REALTIME_SECRET`: same as Render.
    - `NEXT_PUBLIC_REALTIME_URL`: the Render URL again (this one is inlined into the browser bundle).
+   - `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PRO`: test-mode key and the Pro price id (optional; billing shows as not configured without them).
+   - `DEMO_WIDGET_KEY`: optional; the workspace key the public `/demo` page uses.
 4. Deploy. The first deployment creates the vector index on first ingestion (allow a minute before retrieval returns results).
 5. Go back to Render and make sure `ALLOWED_ORIGINS` matches the final Vercel URL.
+6. Stripe webhook (test mode): Developers → Webhooks → Add endpoint `https://<vercel-url>/api/stripe/webhook` with events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`. Copy the signing secret into Vercel as `STRIPE_WEBHOOK_SECRET` and redeploy.
 
 ## 4. After deploy checklist
 
