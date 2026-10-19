@@ -26,8 +26,8 @@ The numbers (demo workspace, gemini-3.5-flash-lite with gemini-embedding-001, ju
 
 What the numbers don't say: the judge is the same model family as the system under test (a Groq judge is used automatically when a key exists), and 40 questions over 4 documents is a small set. Both are stated on the public evals page.
 
-Live demo: [[url]] (try the widget on the demo shop)
-Public evals: [[url]]/evals
+Live demo: https://customer-support-groundline.vercel.app (try the widget on the demo shop)
+Public evals: https://customer-support-groundline.vercel.app/evals
 Code and architecture notes: https://github.com/Mern-Umair/customer-support-groundline
 
 Stack: Next.js 16, TypeScript, MongoDB Atlas Vector Search, Gemini, Groq, Socket.io, Stripe, Vitest, Playwright.

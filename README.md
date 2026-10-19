@@ -2,7 +2,7 @@
 
 **AI customer support that only says what your docs say.** A multi-tenant platform in the spirit of Intercom Fin / Chatbase: a business adds its website and documents, pastes one script tag, and its visitors get streamed answers grounded in that content with citations. When the assistant cannot answer, a human is paged in real time and takes over the same thread. Accuracy is measured with a per-workspace eval set and can be published.
 
-**Status:** feature-complete for v1, built in 8 weeks on free tiers only · [CI](https://github.com/Mern-Umair/customer-support-groundline/actions) ![CI](https://github.com/Mern-Umair/customer-support-groundline/actions/workflows/ci.yml/badge.svg) · Live demo: _deploying_ (see [docs/deploy.md](docs/deploy.md)) · Plan and decisions: [PLAN.md](PLAN.md) · Architecture: [docs/architecture.md](docs/architecture.md)
+**Status:** feature-complete for v1, built in 8 weeks on free tiers only · [CI](https://github.com/Mern-Umair/customer-support-groundline/actions) ![CI](https://github.com/Mern-Umair/customer-support-groundline/actions/workflows/ci.yml/badge.svg) · Live demo: [customer-support-groundline.vercel.app](https://customer-support-groundline.vercel.app) · Public evals: [/evals](https://customer-support-groundline.vercel.app/evals) · Plan and decisions: [PLAN.md](PLAN.md) · Architecture: [docs/architecture.md](docs/architecture.md)
 
 ![Dashboard overview](docs/screenshots/overview.png)
 
